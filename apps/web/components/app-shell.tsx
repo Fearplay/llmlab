@@ -59,7 +59,7 @@ function ModeBadge() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { locale, setLocale, resolvedTheme, setTheme, t } = useApp();
+  const { locale, setLocale, resolvedTheme, setTheme, projectName, t } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labsOpen, setLabsOpen] = useState(pathname.startsWith("/ai-lab"));
   const [query, setQuery] = useState("");
@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="app-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t("app.project")}</span><ChevronRight size={14} /><strong>{pathname === "/" ? t("nav.overview") : t(`nav.${routeKey(pathname)}`)}</strong></div>
+          <div className="breadcrumbs"><span>{projectName ?? t("app.project")}</span><ChevronRight size={14} /><strong>{pathname === "/" ? t("nav.overview") : t(`nav.${routeKey(pathname)}`)}</strong></div>
           <div className="search-shell">
             <label className="global-search"><Search size={16} /><span className="sr-only">{t("app.search")}</span><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { router.push(searchResults[0].href); setQuery(""); } }} placeholder={t("app.search")} /></label>
             {query && <div className="search-results">{searchResults.length ? searchResults.map((item) => <Link key={item.href} href={item.href} onClick={() => setQuery("")}><span>{t(`nav.${item.key}`)}</span><small className="mono">{item.href}</small></Link>) : <span>{t("common.noResults")}</span>}</div>}

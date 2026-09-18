@@ -12,7 +12,7 @@ import { regressions } from "@/lib/fixtures";
 import type { RunRecord } from "@/lib/types";
 
 export function DashboardPage() {
-  const { t, mode, locale } = useApp();
+  const { t, mode, locale, projectName } = useApp();
   const router = useRouter();
   const { userRuns, visibleRuns, showFixtures, addUserRun, removeUserRun, clearFixtures, restoreFixtures } = useDashboardData();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -69,7 +69,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader eyebrow={t("dashboard.eyebrow")} title={t("dashboard.title")} description={t("dashboard.subtitle")} actions={<><Button variant="secondary" onClick={() => router.push("/settings")}>{t("dashboard.editProject")}</Button>{mode === "fixture" ? <Button onClick={openNewRun}><Plus size={15} />{t("dashboard.newExperiment")}</Button> : <Link href="/ai-lab/prompt-tokens" className="button button-primary">{t("dashboard.openLiveLab")}<ArrowRight size={14} /></Link>}</>} />
+      <PageHeader eyebrow={t("dashboard.eyebrow")} title={projectName ?? t("dashboard.title")} description={t("dashboard.subtitle")} actions={<><Button variant="secondary" onClick={() => router.push("/settings")}>{t("dashboard.editProject")}</Button>{mode === "fixture" ? <Button onClick={openNewRun}><Plus size={15} />{t("dashboard.newExperiment")}</Button> : <Link href="/ai-lab/prompt-tokens" className="button button-primary">{t("dashboard.openLiveLab")}<ArrowRight size={14} /></Link>}</>} />
       <ProvenanceStrip mode={latest?.mode ?? "fixture"} model={latest?.model} tail={showFixtures ? "support-v4 · prompt-v18" : t("dashboard.userDataOnly")} />
       {mode !== "fixture" && <Notice title={t("dashboard.storedHistory")}>{t("dashboard.historyModeNotice")}</Notice>}
 

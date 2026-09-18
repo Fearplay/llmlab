@@ -469,10 +469,14 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
 .agreement-row span { color: var(--ink-soft); font-size: 9px; }
 
 .settings-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.settings-layout .panel:nth-child(4) { grid-row: span 2; }
+.settings-project-panel { grid-column: 1 / -1; }
+.settings-data-panel { grid-row: span 2; }
 .setting-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; }
 .setting-row strong, .privacy-block strong { font-size: 11px; }
 .setting-row p, .privacy-block p { margin: 4px 0 0; color: var(--ink-soft); font-size: 9px; line-height: 1.5; }
+.project-name-control { min-width: min(420px, 42vw); display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 7px; align-items: center; }
+.project-name-control input { min-height: 34px; padding: 7px 9px; border: 1px solid var(--line); background: var(--paper-strong); }
+.project-name-control .status-text { grid-column: 1 / -1; justify-self: end; }
 .setting-divider { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
 .privacy-block { display: flex; gap: 10px; padding-bottom: 14px; }
 .privacy-block + .privacy-block { padding-top: 14px; border-top: 1px solid var(--line-soft); }
@@ -598,7 +602,7 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
   .safety-input .button { grid-column: 1 / -1; }
   .safety-compare { grid-template-columns: 1fr; }
   .settings-layout { grid-template-columns: 1fr; }
-  .settings-layout .panel:nth-child(4) { grid-row: auto; }
+  .settings-data-panel { grid-row: auto; }
   .ranking-head, .ranking-row { grid-template-columns: 40px minmax(240px, 1fr) 160px 160px; }
 }
 
@@ -632,6 +636,8 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
   .pager .button { flex: 1; }
   .setting-row { grid-template-columns: 24px 1fr; }
   .setting-row > :last-child { grid-column: 2; }
+  .project-name-control { min-width: 0; width: 100%; grid-template-columns: 1fr; }
+  .project-name-control .status-text { grid-column: auto; justify-self: start; }
   .agreement-row { grid-template-columns: 60px 1fr; }
   .agreement-row span { grid-column: 1 / -1; }
 }
@@ -677,6 +683,11 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
 .validation-grid strong { font-size: 18px; }
 .validation-grid small { grid-column: 2; color: var(--ink-faint); font-size: 9px; }
 
+.prompt-guide { display: grid; grid-template-columns: repeat(3, 1fr); margin: -8px 0 18px; border: 1px solid var(--line); background: var(--paper); }
+.prompt-guide > div { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 12px 14px; border-right: 1px solid var(--line-soft); color: var(--ink-soft); font-size: 9px; line-height: 1.5; }
+.prompt-guide > div:last-child { border-right: 0; }
+.prompt-guide svg { margin-top: 1px; color: var(--blue); }
+.prompt-guide strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 10px; }
 .prompt-layout { display: grid; grid-template-columns: 1.4fr .6fr; gap: 18px; }
 .prompt-side { display: flex; flex-direction: column; gap: 18px; }
 .prompt-editor { width: 100%; min-height: 445px; padding: 15px; resize: vertical; border: 1px solid #39434d; outline: 0; background: #18222d; color: #e9eef3; font-size: 11px; line-height: 1.75; }
@@ -764,6 +775,9 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
 
 @media (max-width: 900px) {
   .content-grid.two-one, .content-grid.one-one, .dataset-summary, .prompt-layout, .compare-lower { grid-template-columns: 1fr; }
+  .prompt-guide { grid-template-columns: 1fr; }
+  .prompt-guide > div { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  .prompt-guide > div:last-child { border-bottom: 0; }
   .compare-overview { grid-template-columns: 1fr; }
   .compare-overview > .panel:last-child { grid-column: auto; }
 }

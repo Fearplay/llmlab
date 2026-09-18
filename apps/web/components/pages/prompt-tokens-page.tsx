@@ -21,7 +21,7 @@ const cloudModelDefaults: Record<string, string> = {
 const providerModels: Record<string, string[]> = {
   fixture: ["fixture-gen-v1"],
   ollama: ["llama3.2", "qwen2.5", "mistral", "gemma3"],
-  openai: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini"],
+  openai: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6", "gpt-5.4-mini", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
   gemini: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-2.5-flash"],
   openai_compatible: [],
@@ -104,7 +104,7 @@ export function PromptTokensPage() {
       if (!body) throw new Error(t("labs.invalidProviderResponse"));
       setResult(body);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("labs.requestFailed"));
+      setError(explainGenerationError(caught, t));
     } finally {
       setRunning(false);
     }
@@ -113,6 +113,7 @@ export function PromptTokensPage() {
   return <>
     <PageHeader title={t("labs.promptTitle")} description={t("labs.promptSubtitle")} actions={<ModeSelector value={mode} onChange={setMode} />} helpKey="prompt.page" />
     <ProvenanceStrip mode={result?.mode ?? mode} provider={result?.provider ?? activeProvider} model={result?.model ?? activeModel} tail={result ? `${result.usage.input_tokens + result.usage.output_tokens} tokens · ${result.latency_ms} ms` : t("labs.noResultYet")} />
+    <Notice tone={mode === "fixture" ? "info" : "warning"} title={t(`labs.${mode}ModeTitle`)}>{t(`labs.${mode}ModeText`)}</Notice>
     {error && <Notice tone="danger" title={t("labs.requestFailed")}>{error}</Notice>}
     <div className="lab-grid two-one">
       <Panel title={t("labs.input")} helpKey="prompt.input">
@@ -136,6 +137,14 @@ export function PromptTokensPage() {
       {result ? <div className="output-layout"><pre className="code-output">{result.text}</pre><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{structured ? t("common.valid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
     </Panel>
   </>;
+}
+
+function explainGenerationError(caught: unknown, t: (key: string) => string) {
+  const message = caught instanceof Error ? caught.message : t("labs.requestFailed");
+  if (message.includes("ConnectError") || message.includes("Could not reach provider")) return t("labs.providerConnectionFailed");
+  if (message.includes("not configured") || message.includes("missing")) return t("labs.providerNotConfigured");
+  if (message.includes("Failed to fetch") || message.includes("Provider API unavailable") || message.trim().startsWith("<!DOCTYPE")) return t("labs.backendUnavailable");
+  return message;
 }
 
 function RangeField({ label, helpKey, value, onChange, max, step }: { label: string; helpKey: string; value: number; onChange: (value: number) => void; max: number; step: number }) {

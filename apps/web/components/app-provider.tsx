@@ -15,6 +15,8 @@ interface AppContextValue {
   theme: ThemePreference;
   resolvedTheme: Exclude<ThemePreference, "system">;
   setTheme: (value: ThemePreference) => void;
+  projectName: string | null;
+  setProjectName: (value: string | null) => void;
   t: (key: string) => string;
 }
 
@@ -27,6 +29,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reduceMotion, setReduceMotionState] = useState(false);
   const [theme, setThemeState] = useState<ThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [projectName, setProjectNameState] = useState<string | null>(null);
 
   useEffect(() => {
     const hydratePreferences = () => {
@@ -34,11 +37,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const storedMode = window.localStorage.getItem("llmlab.mode") as ExecutionMode | null;
       const storedMotion = window.localStorage.getItem("llmlab.reduceMotion");
       const storedTheme = window.localStorage.getItem("llmlab.theme") as ThemePreference | null;
+      const storedProjectName = window.localStorage.getItem("llmlab.projectName");
       const browserLocale: Locale = navigator.language.toLowerCase().startsWith("cs") ? "cs" : "en";
       setLocaleState(storedLocale === "cs" || storedLocale === "en" ? storedLocale : browserLocale);
       if (storedMode === "fixture" || storedMode === "local" || storedMode === "cloud") setModeState(storedMode);
       setReduceMotionState(storedMotion === "true" || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       setThemeState(storedTheme === "light" || storedTheme === "dark" || storedTheme === "system" ? storedTheme : "system");
+      setProjectNameState(storedProjectName?.trim() || null);
     };
     queueMicrotask(hydratePreferences);
   }, []);
@@ -84,8 +89,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("llmlab.theme", next);
   }, []);
 
+  const setProjectName = useCallback((next: string | null) => {
+    const normalized = next?.trim() || null;
+    setProjectNameState(normalized);
+    if (normalized) window.localStorage.setItem("llmlab.projectName", normalized);
+    else window.localStorage.removeItem("llmlab.projectName");
+  }, []);
+
   const t = useCallback((key: string) => translate(locale, key), [locale]);
-  const value = useMemo(() => ({ locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, t }), [locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, t]);
+  const value = useMemo(() => ({ locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, t }), [locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, t]);
 
   return (
     <QueryClientProvider client={queryClient}>

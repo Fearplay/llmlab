@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
     localStorage.setItem("llmlab.theme", "light");
     localStorage.removeItem("llmlab.dashboard.runs");
     localStorage.removeItem("llmlab.dashboard.showFixtures");
+    localStorage.removeItem("llmlab.projectName");
+    localStorage.removeItem("llmlab.promptVersions");
   });
   await page.reload();
   await expect(page.locator("html[data-hydrated='true']")).toBeAttached();
@@ -79,6 +81,7 @@ test("configures a real cloud provider and model in Prompt Lab", async ({ page }
   await expect(page.getByLabel("Model", { exact: true })).toHaveValue("gpt-4.1");
   await page.getByRole("button", { name: "Model: open options" }).click();
   await expect(page.getByRole("option", { name: "gpt-6-astra" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "gpt-5.4-mini" })).toBeVisible();
   await expect(page.getByRole("option", { name: "gpt-4.1-mini" })).toBeVisible();
   await page.getByLabel("Model", { exact: true }).fill("my-fine-tuned-model");
   await expect(page.getByLabel("Model", { exact: true })).toHaveValue("my-fine-tuned-model");
@@ -88,6 +91,29 @@ test("configures a real cloud provider and model in Prompt Lab", async ({ page }
   await expect(page.getByRole("option", { name: "claude-opus-5" })).toBeVisible();
   await expect(page.getByRole("option", { name: "claude-haiku-4-5-20251001" })).toBeVisible();
   await expect(page.getByText("No result yet")).toBeVisible();
+});
+
+test("renames the evaluation project and keeps it after reload", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByLabel("Project name", { exact: true }).fill("Returns quality lab");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Returns quality lab" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Returns quality lab" })).toBeVisible();
+});
+
+test("stores a new prompt version in this browser", async ({ page }) => {
+  await page.goto("/prompts");
+  await expect(page.getByText("This editor does not run the model.", { exact: false })).toBeVisible();
+  const editor = page.locator("textarea.prompt-editor");
+  await editor.fill("You are a concise analyst.\n\nQUESTION\n{{question}}");
+  await page.getByRole("button", { name: "Save as new version" }).click();
+  await expect(page.getByText("A new prompt version was created locally in this browser.")).toBeVisible();
+  await expect(page.getByLabel("Version")).toHaveValue("v19");
+  await page.reload();
+  await page.getByLabel("Version").selectOption("v19");
+  await expect(editor).toContainText("You are a concise analyst.");
 });
 
 test("keeps table help inside the viewport", async ({ page }) => {
