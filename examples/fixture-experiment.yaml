@@ -1,0 +1,14 @@
+schema_version: 1
+run:
+  name: prompt-v18 regression
+  mode: fixture
+  provider: fixture
+  model: fixture-gen-v1
+  dataset_version: support-v4
+  prompt_version: prompt-v18
+  evaluator_versions:
+    - exact-v1
+    - faithfulness-v1
+  config:
+    seed: 42
+    regression_gate: 0.02

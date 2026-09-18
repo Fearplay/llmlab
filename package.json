@@ -1,0 +1,13 @@
+{
+  "name": "llmlab",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --filter @llmlab/web dev",
+    "build": "pnpm --filter @llmlab/web build",
+    "lint": "pnpm --filter @llmlab/web lint",
+    "typecheck": "pnpm --filter @llmlab/web typecheck",
+    "test": "pnpm --filter @llmlab/web test",
+    "test:e2e": "pnpm --filter @llmlab/web test:e2e"
+  }
+}

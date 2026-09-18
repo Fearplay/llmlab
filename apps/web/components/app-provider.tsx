@@ -1,0 +1,101 @@
+"use client";
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { translate } from "@/lib/i18n";
+import type { ExecutionMode, Locale, ThemePreference } from "@/lib/types";
+
+interface AppContextValue {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  mode: ExecutionMode;
+  setMode: (mode: ExecutionMode) => void;
+  reduceMotion: boolean;
+  setReduceMotion: (value: boolean) => void;
+  theme: ThemePreference;
+  resolvedTheme: Exclude<ThemePreference, "system">;
+  setTheme: (value: ThemePreference) => void;
+  t: (key: string) => string;
+}
+
+const AppContext = createContext<AppContextValue | null>(null);
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }));
+  const [locale, setLocaleState] = useState<Locale>("en");
+  const [mode, setModeState] = useState<ExecutionMode>("fixture");
+  const [reduceMotion, setReduceMotionState] = useState(false);
+  const [theme, setThemeState] = useState<ThemePreference>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const hydratePreferences = () => {
+      const storedLocale = window.localStorage.getItem("llmlab.locale") as Locale | null;
+      const storedMode = window.localStorage.getItem("llmlab.mode") as ExecutionMode | null;
+      const storedMotion = window.localStorage.getItem("llmlab.reduceMotion");
+      const storedTheme = window.localStorage.getItem("llmlab.theme") as ThemePreference | null;
+      const browserLocale: Locale = navigator.language.toLowerCase().startsWith("cs") ? "cs" : "en";
+      setLocaleState(storedLocale === "cs" || storedLocale === "en" ? storedLocale : browserLocale);
+      if (storedMode === "fixture" || storedMode === "local" || storedMode === "cloud") setModeState(storedMode);
+      setReduceMotionState(storedMotion === "true" || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      setThemeState(storedTheme === "light" || storedTheme === "dark" || storedTheme === "system" ? storedTheme : "system");
+    };
+    queueMicrotask(hydratePreferences);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const next = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+      setResolvedTheme(next);
+      document.documentElement.dataset.theme = next;
+      document.documentElement.style.colorScheme = next;
+    };
+    applyTheme();
+    media.addEventListener("change", applyTheme);
+    return () => media.removeEventListener("change", applyTheme);
+  }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dataset.reduceMotion = String(reduceMotion);
+    document.documentElement.dataset.hydrated = "true";
+  }, [locale, reduceMotion]);
+
+  const setLocale = useCallback((next: Locale) => {
+    setLocaleState(next);
+    window.localStorage.setItem("llmlab.locale", next);
+    document.documentElement.lang = next;
+  }, []);
+
+  const setMode = useCallback((next: ExecutionMode) => {
+    setModeState(next);
+    window.localStorage.setItem("llmlab.mode", next);
+  }, []);
+
+  const setReduceMotion = useCallback((next: boolean) => {
+    setReduceMotionState(next);
+    window.localStorage.setItem("llmlab.reduceMotion", String(next));
+    document.documentElement.dataset.reduceMotion = String(next);
+  }, []);
+
+  const setTheme = useCallback((next: ThemePreference) => {
+    setThemeState(next);
+    window.localStorage.setItem("llmlab.theme", next);
+  }, []);
+
+  const t = useCallback((key: string) => translate(locale, key), [locale]);
+  const value = useMemo(() => ({ locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, t }), [locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, t]);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContext.Provider value={value}>{children}</AppContext.Provider>
+    </QueryClientProvider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useApp must be used inside AppProvider");
+  return context;
+}
