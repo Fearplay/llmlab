@@ -1,26 +1,123 @@
+from __future__ import annotations
+
+import asyncio
+
 import pytest
 
-from llmlab_api.rag import chunk_text, retrieve
+from llmlab_api.contracts import RagRequest
+from llmlab_api.knowledge import (
+    DISCLAIMER,
+    KnowledgeDocument,
+    corpus_fingerprint,
+    load_documents,
+    repository_root,
+    validate_documents,
+)
+from llmlab_api.rag import MultilingualHashEmbedder, chunk_documents
+from llmlab_api.rag_service import RagService
+from llmlab_api.settings import Settings
 
 
-def test_chunking_is_stable_and_overlapping() -> None:
-    chunks = chunk_text("one two three four five six", size=4, overlap=2)
-    assert [chunk.text for chunk in chunks] == [
-        "one two three four",
-        "three four five six",
-        "five six",
-    ]
-
-
-def test_invalid_overlap() -> None:
-    with pytest.raises(ValueError):
-        chunk_text("content", size=4, overlap=4)
-
-
-def test_retrieval_ranks_matching_chunk_first() -> None:
-    chunks = chunk_text(
-        "refund policy footwear divider shipping carrier tracking", size=3, overlap=0
+def settings() -> Settings:
+    return Settings(
+        rag_embedding_model="llmlab/multilingual-hash-v1",
+        rag_index_dir="apps/api/data/rag-test-index",
     )
-    ranked = retrieve("footwear refund", chunks, top_k=1)
-    assert ranked[0][0].index == 0
-    assert ranked[0][1] > 0
+
+
+def test_real_markdown_corpus_metadata_and_links_are_valid() -> None:
+    documents = load_documents(repository_root() / "knowledge" / "en")
+    assert len(documents) == 16
+    assert len({document.document_id for document in documents}) == 16
+    assert sum(len(document.body.split()) for document in documents) >= 10_000
+    assert all(
+        document.synthetic and document.version and document.language == "en"
+        for document in documents
+    )
+    assert all(document.absolute_path.exists() for document in documents)
+
+
+def test_markdown_chunking_preserves_heading_and_metadata() -> None:
+    documents = load_documents(repository_root() / "knowledge" / "en")
+    chunks = chunk_documents(documents, target_tokens=450, overlap_tokens=80)
+    standard = next(
+        chunk
+        for chunk in chunks
+        if chunk.chunk_id.startswith("ATLAS-RETURNS-001::standard-returns")
+    )
+    assert standard.section == "Standard returns"
+    assert standard.path == "knowledge/en/returns.md"
+    assert "21 calendar days" in standard.text
+    assert "<!--" not in standard.text
+
+
+def test_document_validator_rejects_duplicate_ids() -> None:
+    path = repository_root() / "knowledge" / "en" / "returns.md"
+    document = KnowledgeDocument(
+        "DUP", "One", "1", "2026-01-01", "en", "public", "active", True, "one.md", path, DISCLAIMER
+    )
+    with pytest.raises(ValueError, match="Duplicate"):
+        validate_documents([document, document])
+
+
+def test_fingerprint_changes_with_content() -> None:
+    original = repository_root() / "knowledge" / "en" / "returns.md"
+    first = KnowledgeDocument(
+        "ONE",
+        "One",
+        "1",
+        "2026-01-01",
+        "en",
+        "public",
+        "active",
+        True,
+        "one.md",
+        original,
+        DISCLAIMER,
+    )
+    changed = repository_root() / "knowledge" / "en" / "shipping.md"
+    second = KnowledgeDocument(
+        "ONE",
+        "One",
+        "1",
+        "2026-01-01",
+        "en",
+        "public",
+        "active",
+        True,
+        "one.md",
+        changed,
+        DISCLAIMER,
+    )
+    assert corpus_fingerprint([first], "model", 450, 80) != corpus_fingerprint(
+        [second], "model", 450, 80
+    )
+
+
+def test_czech_and_english_retrieval_use_real_chunks() -> None:
+    service = RagService(settings())
+    czech = service.search("Jak dlouho můžu vrátit běžné zařízení?", 5)
+    english = service.search("How quickly are approved refunds processed?", 5)
+    assert czech["results"][0]["document_id"] == "ATLAS-RETURNS-001"
+    assert czech["results"][0]["section"] == "Standard returns"
+    assert english["results"][0]["document_id"] == "ATLAS-RETURNS-001"
+    assert english["results"][0]["section"] == "Refund processing"
+
+
+def test_out_of_scope_skips_generation_and_fixture_is_offline() -> None:
+    service = RagService(settings())
+    result = asyncio.run(service.run(RagRequest(question="Jaká je vzdálenost Země od Slunce?")))
+    assert result["retrieval"]["generation_skipped"] is True
+    assert result["sources"] == []
+    assert result["usage"]["cost_usd"] == 0
+    assert result["query_language"] == "cs"
+
+
+def test_fixture_answer_is_czech_and_citation_path_exists() -> None:
+    service = RagService(settings())
+    result = asyncio.run(service.run(RagRequest(question="Jak dlouho můžu vrátit běžné zařízení?")))
+    assert "21 kalendářních dnů" in result["answer"]
+    assert "ATLAS-RETURNS-001" in result["answer"]
+    assert all((repository_root() / source["path"]).exists() for source in result["sources"])
+    assert result["fixture"] is True
+    assert result["retrieval"]["embedding_model"] == MultilingualHashEmbedder.model_id

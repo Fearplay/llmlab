@@ -1,36 +1,42 @@
 "use client";
 
-import { Calculator, Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Calculator } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { EmbeddingChart } from "@/components/charts";
-import { Button, HelpLabel, MetricLabel, PageHeader, Panel, ProgressBar, ProvenanceStrip } from "@/components/ui";
-
-const corpus = [
-  { text: "Footwear can be returned within 30 days when unworn.", vector: 0.921, lexical: 0.36, pos: [0.54, 0.48] as [number, number] },
-  { text: "Shoes must be new and in their original packaging.", vector: 0.846, lexical: 0.18, pos: [0.37, 0.31] as [number, number] },
-  { text: "Refunds are processed in five to seven business days.", vector: 0.612, lexical: 0.09, pos: [-0.06, 0.28] as [number, number] },
-  { text: "Standard delivery normally takes three to five days.", vector: 0.288, lexical: 0, pos: [-0.54, -0.41] as [number, number] },
-];
+import { Button, HelpLabel, Notice, PageHeader, Panel, ProgressBar, ProvenanceStrip } from "@/components/ui";
+import type { RagSearchResult, RagStatus } from "@/lib/types";
 
 export function EmbeddingsPage() {
-  const { t } = useApp();
-  const [query, setQuery] = useState("How long do I have to send shoes back?");
-  const [calculated, setCalculated] = useState(true);
-  const points = useMemo(() => [{ name: "Query", value: [0.62, 0.62] as [number, number], score: 1 }, ...corpus.map((item, index) => ({ name: `D${index + 1}`, value: item.pos, score: item.vector }))], []);
+  const { locale } = useApp();
+  const [query, setQuery] = useState("Jak dlouho můžu vrátit běžné zařízení?");
+  const [status, setStatus] = useState<RagStatus | null>(null);
+  const [results, setResults] = useState<RagSearchResult[]>([]);
+  const [language, setLanguage] = useState("—");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => { fetch("/api/v1/rag/status").then((response) => response.json()).then((data: RagStatus) => setStatus(data)).catch(() => setError("RAG status unavailable")); }, []);
+  const calculate = async () => {
+    setLoading(true); setError("");
+    try {
+      const response = await fetch("/api/v1/rag/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: query, top_k: 8 }) });
+      if (!response.ok) throw new Error(await response.text());
+      const payload = await response.json() as { query_language: string; results: RagSearchResult[] };
+      setLanguage(payload.query_language); setResults(payload.results);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setLoading(false); }
+  };
   return <>
-    <PageHeader title={t("labs.embeddingsTitle")} description={t("labs.embeddingsSubtitle")} helpKey="page.embeddings" />
-    <ProvenanceStrip mode="fixture" provider="Fixture engine" model="fixture-embed-v1" tail="dimensions 8 · normalized" />
-    <div className="embedding-layout">
-      <Panel title={t("labs.query")}>
-        <label className="field"><HelpLabel label={t("labs.query")} helpKey="field.embeddingQuery" /><textarea rows={3} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <Button onClick={() => { setCalculated(false); window.setTimeout(() => setCalculated(true), 260); }}><Calculator size={15} />{t("labs.calculate")}</Button>
-        <div className="vector-preview"><MetricLabel label={t("labs.vectorPreview")} /><code>[0.18, −0.42, 0.71, 0.05, −0.11, 0.34, …]</code></div>
-      </Panel>
-      <Panel title={t("labs.projectionTitle")} aside={<span className="panel-meta">PCA · demo</span>}><EmbeddingChart points={points} /><p className="method-note"><Info size={13} />{t("labs.projectionNote")}</p></Panel>
-    </div>
-    <Panel title={t("labs.corpus")} aside={<span className="panel-meta">4 documents · cosine similarity</span>}>
-      <div className={`ranking-table ${calculated ? "" : "calculating"}`}><div className="ranking-head"><MetricLabel label={t("labs.rank")} /><MetricLabel label={t("labs.document")} /><MetricLabel label={t("labs.vector")} /><MetricLabel label={t("labs.lexical")} /></div>{corpus.map((item, index) => <div className="ranking-row" key={item.text}><strong className="mono">{index + 1}</strong><p><b>D{index + 1}</b>{item.text}</p><div><strong className="mono">{item.vector.toFixed(3)}</strong><ProgressBar value={item.vector * 100} /></div><div><strong className="mono">{item.lexical.toFixed(2)}</strong><ProgressBar value={item.lexical * 100} tone="gray" /></div></div>)}</div>
+    <PageHeader title={locale === "cs" ? "Embeddingy a hybridní retrieval" : "Embeddings and hybrid retrieval"} description={locale === "cs" ? "Porovnej skutečnou dense podobnost, BM25 a výsledné vážené skóre nad anglickým corpusem." : "Compare real dense similarity, BM25, and the final weighted score over the English corpus."} helpKey="page.embeddings" />
+    {status && <ProvenanceStrip mode="fixture" provider="Real local index" model={status.embedding_model} tail={`${status.vector_dimensions} dimensions · ${status.chunk_count} chunks`} />}
+    {error && <Notice tone="danger" title="Search unavailable">{error}</Notice>}
+    <Panel title={locale === "cs" ? "Dotaz" : "Query"}>
+      <div className="embedding-query"><label className="field"><HelpLabel label={locale === "cs" ? "Český nebo anglický dotaz" : "Czech or English query"} /><textarea rows={3} maxLength={2000} value={query} onChange={(event) => setQuery(event.target.value)} /></label><Button loading={loading} onClick={() => void calculate()}><Calculator size={15} />{locale === "cs" ? "Spočítat" : "Calculate"}</Button></div>
+      <div className="score-ledger"><div><span>language</span><strong className="mono">{language}</strong></div><div><span>model</span><strong className="mono">{status?.embedding_model ?? "…"}</strong></div><div><span>dimensions</span><strong className="mono">{status?.vector_dimensions ?? "…"}</strong></div><div><span>projection</span><strong className="mono">not shown</strong></div></div>
+    </Panel>
+    <Panel title={locale === "cs" ? "Pořadí skutečných chunků" : "Real chunk ranking"} aside={<span className="panel-meta">dense 85% · BM25 15%</span>}>
+      {!results.length ? <div className="rag-empty"><p>{locale === "cs" ? "Výsledky vzniknou až po skutečném API požadavku." : "Results appear only after a real API request."}</p></div> : <div className="ranking-table"><div className="ranking-head rag-ranking"><span>#</span><span>Chunk</span><span>Dense</span><span>BM25</span><span>Fused</span></div>{results.map((item, index) => <div className="ranking-row rag-ranking" key={item.chunk_id}><strong className="mono">{index + 1}</strong><p><b>{item.document_id} · {item.section}</b><small className="mono">{item.path}</small>{item.excerpt}</p><Score value={item.dense_score} /><Score value={item.lexical_score} /><Score value={item.fused_score} /></div>)}</div>}
     </Panel>
   </>;
 }
+
+function Score({ value }: { value: number }) { return <div><strong className="mono">{value.toFixed(4)}</strong><ProgressBar value={value * 100} /></div>; }

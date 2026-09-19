@@ -8,9 +8,9 @@ import type { ExecutionMode } from "@/lib/types";
 
 const colors = ["token-blue", "token-green", "token-orange", "token-violet"];
 const fixtureOutput = `{
-  "answer": "Worn footwear cannot be returned because returned items must be new and unworn.",
-  "citations": ["returns_footwear.md#eligibility"],
-  "confidence": 0.96
+  "answer": "Configured hardware has a 14-calendar-day return window.",
+  "citations": ["ATLAS-RETURNS-001#standard-returns"],
+  "confidence": null
 }`;
 const cloudModelDefaults: Record<string, string> = {
   openai: "gpt-4.1",
@@ -19,7 +19,7 @@ const cloudModelDefaults: Record<string, string> = {
   openai_compatible: "model-name",
 };
 const providerModels: Record<string, string[]> = {
-  fixture: ["fixture-gen-v1"],
+  fixture: ["fixture-gen-v2"],
   ollama: ["llama3.2", "qwen2.5", "mistral", "gemma3"],
   openai: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6", "gpt-5.4-mini", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
@@ -39,7 +39,7 @@ interface LiveGenerationResult {
 
 export function PromptTokensPage() {
   const { t, mode, setMode } = useApp();
-  const [text, setText] = useState("Explain why a customer cannot return worn footwear. Cite the relevant policy.");
+  const [text, setText] = useState("Explain the configured-hardware return window. Cite the relevant policy.");
   const [systemText, setSystemText] = useState("");
   const [temperature, setTemperature] = useState(0.2);
   const [topP, setTopP] = useState(0.9);
@@ -60,7 +60,7 @@ export function PromptTokensPage() {
     });
   }, [t]);
   const activeProvider = mode === "fixture" ? "fixture" : mode === "local" ? "ollama" : provider;
-  const activeModel = mode === "fixture" ? "fixture-gen-v1" : mode === "local" ? localModel : cloudModel;
+  const activeModel = mode === "fixture" ? "fixture-gen-v2" : mode === "local" ? localModel : cloudModel;
   const modelOptions = providerModels[activeProvider] ?? [];
   const run = async () => {
     setRunning(true);
@@ -68,7 +68,7 @@ export function PromptTokensPage() {
     setResult(null);
     if (mode === "fixture") {
       window.setTimeout(() => {
-        setResult({ text: structured ? fixtureOutput : "Worn footwear is excluded because eligible returns must be new and unworn. [returns_footwear.md]", provider: "fixture", model: "fixture-gen-v1", mode: "fixture", usage: { input_tokens: 48, output_tokens: 37, cached_tokens: 0, cost_usd: 0 }, latency_ms: 412, fixture: true });
+        setResult({ text: structured ? fixtureOutput : "Configured hardware has a 14-calendar-day return window. [ATLAS-RETURNS-001, Standard returns]", provider: "fixture", model: "fixture-gen-v2", mode: "fixture", usage: { input_tokens: 48, output_tokens: 24, cached_tokens: 0, cost_usd: 0 }, latency_ms: 1, fixture: true });
         setRunning(false);
       }, 550);
       return;

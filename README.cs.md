@@ -8,6 +8,14 @@
 
 LLMLab pracuje se změnami AI systému jako se změnami softwaru: verzuj vstupy, spusť řízený experiment, prohlédni jednotlivá selhání a zachovej přesný původ každého výsledku. Deterministický režim Ukázka zpřístupňuje celý produkt bez API klíčů a placených požadavků.
 
+## Skutečný vícejazyčný RAG
+
+RAG, Embeddingy, Grounding a Znalostní báze používají trackovaný syntetický anglický corpus
+fiktivní organizace Atlas Works. České i anglické otázky procházejí skutečným lokálním vektorovým +
+BM25 retrievelam; pouze Fixture generování je deterministické. Modely, režimy, životní cyklus
+indexu, soukromí, API, přidání dokumentu a omezení popisuje
+[průvodce vícejazyčným RAG](docs/multilingual-rag.md).
+
 ## Co LLMLab umí
 
 - Porovnávat varianty promptů a modelů nad stejným neměnným datasetem.

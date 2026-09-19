@@ -8,6 +8,14 @@
 
 LLMLab treats AI-system changes like software changes: version the inputs, run a controlled experiment, inspect individual failures, and keep the exact provenance of every result. A deterministic fixture mode makes the full product explorable without API keys or paid requests.
 
+## Real multilingual RAG
+
+RAG, Embeddings, Grounding, and Knowledge Base use a tracked synthetic English corpus for the
+fictional Atlas Works organisation. Czech and English questions run through a real local vector +
+BM25 retrieval pipeline; only Fixture generation is deterministic. See
+[the multilingual RAG guide](docs/multilingual-rag.md) for models, index lifecycle, modes, privacy,
+API contracts, adding documents, and current limitations.
+
 ## Why LLMLab
 
 - Compare prompt and model variants on the same immutable dataset.

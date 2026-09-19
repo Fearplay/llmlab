@@ -38,12 +38,21 @@ test("clears only demo data and keeps user runs", async ({ page }) => {
 
 test("runs and inspects the RAG pipeline", async ({ page }) => {
   await page.goto("/ai-lab/rag");
-  const run = page.getByRole("button", { name: "Run pipeline" });
+  const run = page.getByRole("button", { name: "Run real pipeline" });
   await run.click();
-  await expect(run).toBeDisabled();
-  await expect(run).toBeEnabled();
-  await page.getByRole("tab", { name: "Claims" }).click();
-  await expect(page.getByText("Generated answer")).toBeVisible();
+  await expect(page.getByText(/21 calendar days/).first()).toBeVisible();
+  await page.getByRole("tab", { name: "answer" }).click();
+  await expect(page.locator(".rag-answer").first()).toContainText("ATLAS-RETURNS-001");
+  await expect(page.getByText("knowledge/en/returns.md").first()).toBeVisible();
+});
+
+test("loads the tracked Knowledge Base and supports keyboard focus", async ({ page }) => {
+  await page.goto("/knowledge-base");
+  await expect(page.getByRole("heading", { name: "Knowledge Base" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "ATLAS-RETURNS-001" })).toBeVisible();
+  await expect(page.getByText("knowledge/en/returns.md")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(":focus")).toBeVisible();
 });
 
 test("filters run comparison regressions", async ({ page }) => {
@@ -71,7 +80,7 @@ test("opens the local AI field guide and enters the RAG lab", async ({ page }) =
   await expect(page.getByRole("heading", { name: "AI systems field guide" })).toBeVisible();
   await page.getByRole("link", { name: "Open interactive lab" }).nth(2).click();
   await expect(page).toHaveURL(/\/ai-lab\/rag$/);
-  await expect(page.getByRole("button", { name: "Run pipeline" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run real pipeline" })).toBeVisible();
 });
 
 test("configures a real cloud provider and model in Prompt Lab", async ({ page }) => {

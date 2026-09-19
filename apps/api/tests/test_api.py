@@ -1,6 +1,7 @@
 import os
 
 os.environ["DATABASE_URL"] = "sqlite:///./test-llmlab.db"
+os.environ["RAG_EMBEDDING_MODEL"] = "llmlab/multilingual-hash-v1"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -18,7 +19,7 @@ def test_fixture_api_flow() -> None:
             "/api/v1/generation",
             json={
                 "mode": "fixture",
-                "messages": [{"role": "user", "content": "Can I return worn footwear?"}],
+                "messages": [{"role": "user", "content": "Show a deterministic fixture."}],
             },
         )
         assert generation.status_code == 200
@@ -26,10 +27,22 @@ def test_fixture_api_flow() -> None:
 
         rag = client.post(
             "/api/v1/rag/run",
-            json={"question": "What is the footwear return window?", "mode": "fixture"},
+            json={"question": "How quickly are approved refunds processed?", "mode": "fixture"},
         )
         assert rag.status_code == 200
-        assert rag.json()["chunks"]
+        assert rag.json()["results"]
+        assert rag.json()["sources"][0]["path"] == "knowledge/en/returns.md"
+
+        status = client.get("/api/v1/rag/status")
+        assert status.status_code == 200
+        assert status.json()["document_count"] == 16
+
+        search = client.post(
+            "/api/v1/rag/search",
+            json={"question": "Jak dlouho můžu vrátit běžné zařízení?", "top_k": 3},
+        )
+        assert search.status_code == 200
+        assert search.json()["query_language"] == "cs"
 
         invalid_cloud_training = client.post(
             "/api/v1/training/run", json={"mode": "cloud", "epochs": 3}

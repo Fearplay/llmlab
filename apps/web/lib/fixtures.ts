@@ -2,7 +2,6 @@ import type {
   CompareCase,
   CompareMetric,
   ProviderRecord,
-  RagChunk,
   RegressionRecord,
   RunRecord,
   TraceItem,
@@ -29,14 +28,6 @@ export const regressions: RegressionRecord[] = [
   { id: "CS-0447", title: "Escalation criteria", run: "run_0184", delta: -0.667, category: "Safety", severity: "low", status: "reviewed" },
 ];
 
-export const ragChunks: RagChunk[] = [
-  { id: 1, title: "Footwear Return Policy", source: "docs/returns_footwear.md", chunk: 3, score: 0.872, relevant: true, text: "Footwear items may be returned within 30 days of delivery for a full refund, provided they are in new and unworn condition with the original packaging." },
-  { id: 2, title: "General Return Policy", source: "docs/returns_general.md", chunk: 1, score: 0.811, relevant: true, text: "Most items can be returned within 30 days of delivery. Certain categories have different return windows." },
-  { id: 3, title: "Footwear Exchanges", source: "docs/returns_footwear.md", chunk: 5, score: 0.764, relevant: true, text: "You can exchange footwear for a different size or color within 30 days of delivery. Exchange shipping is free." },
-  { id: 4, title: "Non-returnable Items", source: "docs/policies_exclusions.md", chunk: 2, score: 0.718, relevant: false, text: "Final-sale items, customized products, and worn footwear are not eligible for return." },
-  { id: 5, title: "Refund Processing Time", source: "docs/refunds.md", chunk: 4, score: 0.693, relevant: false, text: "Once we receive your return, refunds are processed within 5–7 business days to the original payment method." },
-];
-
 export const compareMetrics: CompareMetric[] = [
   { label: "Correctness", baseline: "0.872", candidate: "0.869", delta: "−0.003", threshold: "≥ 0.850", result: "neutral" },
   { label: "Relevance", baseline: "0.841", candidate: "0.847", delta: "+0.006", threshold: "≥ 0.800", result: "pass" },
@@ -50,12 +41,12 @@ export const compareMetrics: CompareMetric[] = [
 export const compareCases: CompareCase[] = [
   {
     id: "CS-0042", slice: "Returns & Refunds", baseline: 1, candidate: 0, delta: -1,
-    finding: "Incorrect refund window", expected: "Unworn footwear can be returned within 30 days.",
-    prompt: "I bought sneakers 45 days ago and they do not fit. Can I still get a refund? The shoes are unworn and in the original box.",
-    baselineOutput: "Footwear may be returned within 30 days of delivery. Since 45 days have passed, the refund window has closed, but an exchange may still be reviewed.",
-    candidateOutput: "Yes. Unworn footwear can be returned within 60 days when it has the original packaging.",
-    evidence: "The candidate claims 60 days, contradicting the 30-day source policy.",
-    source: "Footwear items may be returned within 30 days of delivery for a full refund when new, unworn, and in the original packaging.",
+    finding: "Incorrect refund window", expected: "Standard Atlas hardware can be returned within 21 calendar days.",
+    prompt: "My Atlas Hub was delivered 35 days ago. Can I still return it under the standard policy?",
+    baselineOutput: "No. Standard hardware has a 21-calendar-day return window, so day 35 is outside it.",
+    candidateOutput: "Yes. Standard hardware can be returned within 60 days.",
+    evidence: "The candidate claims 60 days, contradicting ATLAS-RETURNS-001.",
+    source: "Standard hardware can be returned within 21 calendar days of delivery.",
   },
   {
     id: "CS-0176", slice: "Order Tracking", baseline: 1, candidate: 0, delta: -1,
@@ -82,8 +73,8 @@ export const compareCases: CompareCase[] = [
     id: "CS-0447", slice: "Returns & Refunds", baseline: 1, candidate: 0.333, delta: -0.667,
     finding: "Wrong eligibility rule", expected: "Custom products cannot be returned.",
     prompt: "Can I return an engraved bottle?", baselineOutput: "Engraved products are customized and cannot be returned.",
-    candidateOutput: "You can return it within 30 days if unused.", evidence: "Customization exclusion overrides the general 30-day policy.",
-    source: "Customized and engraved products are final sale and are not eligible for return.",
+    candidateOutput: "You can return it under the standard policy if unused.", evidence: "Customization exclusion overrides the standard hardware policy.",
+    source: "Custom hardware and engraved units are not returnable unless damaged or materially different from the approved order.",
   },
 ];
 
@@ -111,4 +102,3 @@ export const datasetRows = [
   { id: "CS-0003", input: "I cannot sign in after changing my password", expected: "account", category: "account", difficulty: "hard" },
   { id: "CS-0004", input: "Why was my card charged twice?", expected: "payment", category: "payment", difficulty: "hard" },
 ];
-

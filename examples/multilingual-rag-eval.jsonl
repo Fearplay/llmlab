@@ -1,0 +1,30 @@
+{"id":"RAG-CS-001","language":"cs","question":"Jak dlouho můžu vrátit běžné zařízení?","expected_document_ids":["ATLAS-RETURNS-001"],"expected_facts":["21 calendar days"],"should_answer":true}
+{"id":"RAG-CS-002","language":"cs","question":"Za jak dlouho se zpracuje schválená refundace?","expected_document_ids":["ATLAS-RETURNS-001"],"expected_facts":["five business days"],"should_answer":true}
+{"id":"RAG-CS-003","language":"cs","question":"Jak dlouhá je záruka pro Atlas Sensor?","expected_document_ids":["ATLAS-WARRANTY-001"],"expected_facts":["18-month"],"should_answer":true}
+{"id":"RAG-CS-004","language":"cs","question":"Kdy musím nahlásit poškození při doručení?","expected_document_ids":["ATLAS-SHIPPING-001","ATLAS-RETURNS-001"],"expected_facts":["five calendar days"],"should_answer":true}
+{"id":"RAG-CS-005","language":"cs","question":"Jak zruším předplatné Atlas Cloud?","expected_document_ids":["ATLAS-SUBSCRIPTIONS-001"],"expected_facts":["before the renewal timestamp"],"should_answer":true}
+{"id":"RAG-CS-006","language":"cs","question":"Kolik znaků musí mít heslo?","expected_document_ids":["ATLAS-ACCOUNTS-001"],"expected_facts":["12 characters"],"should_answer":true}
+{"id":"RAG-CS-007","language":"cs","question":"Kam mám nahlásit bezpečnostní problém?","expected_document_ids":["ATLAS-SECURITY-001"],"expected_facts":["security.atlas.example/report"],"should_answer":true}
+{"id":"RAG-CS-008","language":"cs","question":"Jak rychle se potvrzuje incident SEV-1?","expected_document_ids":["ATLAS-INCIDENT-001"],"expected_facts":["five minutes"],"should_answer":true}
+{"id":"RAG-CS-009","language":"cs","question":"Kolik lze utratit za jídlo na pracovní cestě?","expected_document_ids":["ATLAS-TRAVEL-001"],"expected_facts":["USD 75 per day"],"should_answer":true}
+{"id":"RAG-CS-010","language":"cs","question":"Jaká je provozní teplota Atlas Hub?","expected_document_ids":["ATLAS-OPS-001"],"expected_facts":["0°C to 40°C"],"should_answer":true}
+{"id":"RAG-EN-001","language":"en","question":"How quickly are approved refunds processed?","expected_document_ids":["ATLAS-RETURNS-001"],"expected_facts":["five business days"],"should_answer":true}
+{"id":"RAG-EN-002","language":"en","question":"What is the standard hardware return window?","expected_document_ids":["ATLAS-RETURNS-001"],"expected_facts":["21 calendar days"],"should_answer":true}
+{"id":"RAG-EN-003","language":"en","question":"How long is the Atlas Hub warranty?","expected_document_ids":["ATLAS-WARRANTY-001"],"expected_facts":["24-month"],"should_answer":true}
+{"id":"RAG-EN-004","language":"en","question":"When does priority delivery normally arrive?","expected_document_ids":["ATLAS-SHIPPING-001"],"expected_facts":["one to two business days"],"should_answer":true}
+{"id":"RAG-EN-005","language":"en","question":"Who can transfer workspace ownership?","expected_document_ids":["ATLAS-ACCOUNTS-001"],"expected_facts":["Owners"],"should_answer":true}
+{"id":"RAG-EN-006","language":"en","question":"How long are standard security events retained?","expected_document_ids":["ATLAS-PRIVACY-001"],"expected_facts":["90 days"],"should_answer":true}
+{"id":"RAG-EN-007","language":"en","question":"What is the Atlas Cloud availability objective?","expected_document_ids":["ATLAS-AVAILABILITY-001"],"expected_facts":["99.9%"],"should_answer":true}
+{"id":"RAG-EN-008","language":"en","question":"When are routine production deployments allowed?","expected_document_ids":["ATLAS-OPS-001"],"expected_facts":["Monday through Thursday","09:00 and 16:00 UTC"],"should_answer":true}
+{"id":"RAG-EN-009","language":"en","question":"When is an expense receipt required?","expected_document_ids":["ATLAS-TRAVEL-001"],"expected_facts":["USD 25 or more"],"should_answer":true}
+{"id":"RAG-EN-010","language":"en","question":"How soon is a credible security report acknowledged?","expected_document_ids":["ATLAS-SECURITY-001"],"expected_facts":["one business day"],"should_answer":true}
+{"id":"RAG-EXACT-001","language":"en","question":"What does ATLAS-RETURNS-001 say about RMA validity?","expected_document_ids":["ATLAS-RETURNS-001"],"expected_facts":["14 calendar days"],"should_answer":true}
+{"id":"RAG-EXACT-002","language":"en","question":"Does Atlas Sensor record audio?","expected_document_ids":["ATLAS-PRODUCTS-001"],"expected_facts":["does not record audio"],"should_answer":true}
+{"id":"RAG-EXACT-003","language":"en","question":"What happens after ten failed sign-in attempts?","expected_document_ids":["ATLAS-ACCOUNTS-001"],"expected_facts":["30-minute lockout"],"should_answer":true}
+{"id":"RAG-EXACT-004","language":"en","question":"What is the Atlas Cloud trial length?","expected_document_ids":["ATLAS-SUBSCRIPTIONS-001"],"expected_facts":["14 calendar days"],"should_answer":true}
+{"id":"RAG-EXACT-005","language":"en","question":"Which products have a 24-month warranty?","expected_document_ids":["ATLAS-WARRANTY-001"],"expected_facts":["Atlas Hub","Atlas Display","Atlas Dock"],"should_answer":true}
+{"id":"RAG-CS-OOS-001","language":"cs","question":"Jaká je vzdálenost Země od Marsu?","expected_document_ids":[],"expected_facts":[],"should_answer":false}
+{"id":"RAG-CS-OOS-002","language":"cs","question":"Kdo napsal Hamleta?","expected_document_ids":[],"expected_facts":[],"should_answer":false}
+{"id":"RAG-EN-OOS-001","language":"en","question":"What is the capital of Peru?","expected_document_ids":[],"expected_facts":[],"should_answer":false}
+{"id":"RAG-EN-OOS-002","language":"en","question":"How far is Earth from the Sun?","expected_document_ids":[],"expected_facts":[],"should_answer":false}
+{"id":"RAG-EN-OOS-003","language":"en","question":"Who won the football world cup?","expected_document_ids":[],"expected_facts":[],"should_answer":false}

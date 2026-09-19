@@ -36,6 +36,7 @@ const primary = [
   { href: "/", key: "overview", icon: Gauge },
   { href: "/experiments", key: "experiments", icon: FlaskConical },
   { href: "/datasets", key: "datasets", icon: Database },
+  { href: "/knowledge-base", key: "knowledgeBase", icon: SquareStack },
   { href: "/prompts", key: "prompts", icon: MessageSquareText },
   { href: "/providers", key: "providers", icon: Network },
   { href: "/evaluators", key: "evaluators", icon: SlidersHorizontal },
@@ -133,6 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function routeKey(pathname: string) {
+  if (pathname === "/knowledge-base") return "knowledgeBase";
   if (pathname === "/docs") return "documentation";
   if (pathname.includes("prompt-tokens")) return "promptTokens";
   if (pathname.includes("embeddings")) return "embeddings";

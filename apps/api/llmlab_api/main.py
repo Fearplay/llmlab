@@ -22,6 +22,7 @@ from .contracts import (
     GenerationRequest,
     GenerationResult,
     RagRequest,
+    RagSearchRequest,
     RunCreate,
     RunStatus,
     RunView,
@@ -29,9 +30,10 @@ from .contracts import (
 )
 from .database import SessionLocal, create_tables, get_db
 from .evaluators import evaluate
-from .fixture import rag_fixture, training_fixture
+from .fixture import training_fixture
 from .models import HumanReview, Run
 from .providers import embed, generate, provider_views
+from .rag_service import get_rag_service
 from .settings import Settings, get_settings
 from .state import can_transition
 from .training import run_local_training
@@ -89,14 +91,43 @@ def evaluations(request: EvaluationRequest) -> EvaluationResult:
     return evaluate(request)
 
 
+@app.get("/api/v1/rag/status", tags=["rag"])
+def rag_status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    return get_rag_service(settings).status()
+
+
+@app.get("/api/v1/rag/documents", tags=["rag"])
+def rag_documents(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    status = get_rag_service(settings).status()
+    return {
+        "corpus_id": status["corpus_id"],
+        "indexed_at": status["indexed_at"],
+        "fingerprint": status["fingerprint"],
+        "embedding_model": status["embedding_model"],
+        "documents": status["documents"],
+    }
+
+
+@app.post("/api/v1/rag/reindex", tags=["rag"])
+def rag_reindex(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    return get_rag_service(settings).rebuild()
+
+
+@app.post("/api/v1/rag/search", tags=["rag"])
+def rag_search(
+    request: RagSearchRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    return get_rag_service(settings).search(request.question, request.top_k)
+
+
 @app.post("/api/v1/rag/run", tags=["rag"])
-def rag_run(request: RagRequest) -> dict[str, Any]:
-    if request.mode is not ExecutionMode.FIXTURE:
-        raise HTTPException(
-            501,
-            "Live RAG requires a configured vector collection; no fixture is presented as live.",
-        )
-    return rag_fixture(request.question, request.top_k)
+async def rag_run(
+    request: RagRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    try:
+        return await get_rag_service(settings).run(request)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/v1/training/run", tags=["training"])

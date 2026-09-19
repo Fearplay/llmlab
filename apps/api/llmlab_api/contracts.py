@@ -70,7 +70,7 @@ class GenerationResult(BaseModel):
 class EmbeddingRequest(BaseModel):
     mode: ExecutionMode = ExecutionMode.FIXTURE
     provider: str = "fixture"
-    model: str = "fixture-embed-v1"
+    model: str = "fixture-hash-embed-v2"
     inputs: list[str] = Field(min_length=1, max_length=256)
 
 
@@ -146,11 +146,17 @@ class ToolCall(BaseModel):
 
 
 class RagRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=4000)
+    question: str = Field(min_length=1, max_length=2000)
     mode: ExecutionMode = ExecutionMode.FIXTURE
     top_k: int = Field(5, ge=1, le=20)
-    chunk_size: int = Field(480, ge=80, le=2000)
-    overlap: int = Field(80, ge=0, le=500)
+    provider: str = "fixture"
+    model: str = "fixture-grounded-v2"
+    response_language: Literal["auto", "en", "cs"] = "auto"
+
+
+class RagSearchRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(5, ge=1, le=20)
 
 
 class TrainingRequest(BaseModel):

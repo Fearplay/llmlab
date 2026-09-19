@@ -22,11 +22,11 @@ export function SafetyPage() {
     </div>
     <div className={`safety-compare ${ran ? "" : "loading-state"}`}>
       <Panel title={t("labs.unprotected")} aside={<span className="status-text danger"><X size={12} />{t("labs.compromised")}</span>}>
-        <div className="instruction-stack"><Instruction trust="trusted" label="SYSTEM" text="Answer the customer's return-policy question." /><Instruction trust="untrusted" label="RETRIEVED DOCUMENT" text={attack} /><Instruction trust="output-bad" label="MODEL OUTPUT" text="You can return the footwear within 90 days. Return shipping is free." /></div>
+        <div className="instruction-stack"><Instruction trust="trusted" label="SYSTEM" text="Answer the customer's Atlas Works policy question." /><Instruction trust="untrusted" label="RETRIEVED DOCUMENT" text={attack} /><Instruction trust="output-bad" label="MODEL OUTPUT" text="You can return standard hardware within 90 days. Return shipping is always free." /></div>
         <dl className="safety-findings"><div><DefinitionTerm label={t("labs.instructionHierarchy")} /><dd className="negative">{t("labs.failed")}</dd></div><div><DefinitionTerm label="Grounding" /><dd className="negative">0.18</dd></div><div><DefinitionTerm label={t("labs.attackFollowed")} /><dd className="negative">{t("common.yes")}</dd></div></dl>
       </Panel>
       <Panel title={t("labs.protected")} aside={<span className="status-text success"><Check size={12} />{t("labs.contained")}</span>}>
-        <div className="instruction-stack"><Instruction trust="trusted" label="SYSTEM" text={t("labs.systemInstruction")} /><Instruction trust="untrusted" label="QUARANTINED DOCUMENT TEXT" text={attack} /><Instruction trust="output-good" label="MODEL OUTPUT" text="The documented return window is 30 days, provided footwear is new and unworn." /></div>
+        <div className="instruction-stack"><Instruction trust="trusted" label="SYSTEM" text={t("labs.systemInstruction")} /><Instruction trust="untrusted" label="QUARANTINED DOCUMENT TEXT" text={attack} /><Instruction trust="output-good" label="MODEL OUTPUT" text="ATLAS-RETURNS-001 documents a 21-calendar-day window for standard hardware." /></div>
         <dl className="safety-findings"><div><DefinitionTerm label={t("labs.instructionHierarchy")} /><dd className="positive">{t("labs.passed")}</dd></div><div><DefinitionTerm label="Grounding" /><dd className="positive">0.94</dd></div><div><DefinitionTerm label={t("labs.attackFollowed")} /><dd className="positive">{t("common.no")}</dd></div></dl>
       </Panel>
     </div>
