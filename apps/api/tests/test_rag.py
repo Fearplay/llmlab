@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 
@@ -13,8 +14,12 @@ from llmlab_api.knowledge import (
     repository_root,
     validate_documents,
 )
-from llmlab_api.rag import MultilingualHashEmbedder, chunk_documents
-from llmlab_api.rag_service import RagService
+from llmlab_api.rag import (
+    MultilingualHashEmbedder,
+    SentenceTransformerEmbedder,
+    chunk_documents,
+)
+from llmlab_api.rag_service import RagService, normalize_citations
 from llmlab_api.settings import Settings
 
 
@@ -121,3 +126,39 @@ def test_fixture_answer_is_czech_and_citation_path_exists() -> None:
     assert all((repository_root() / source["path"]).exists() for source in result["sources"])
     assert result["fixture"] is True
     assert result["retrieval"]["embedding_model"] == MultilingualHashEmbedder.model_id
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_RAG_MODEL_INTEGRATION") != "1",
+    reason="requires the optional rag dependency and a locally cached transformer model",
+)
+def test_real_multilingual_model_matches_czech_query_to_english_policy() -> None:
+    embedder = SentenceTransformerEmbedder(
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
+    vectors = embedder.embed(
+        [
+            "Jak dlouho můžu vrátit běžné zařízení?",
+            "Standard hardware can be returned within 21 calendar days of delivery.",
+            "Encrypted backups are restored during quarterly recovery exercises.",
+        ]
+    )
+    assert float(vectors[0] @ vectors[1]) > float(vectors[0] @ vectors[2])
+
+
+def test_model_citations_are_completed_from_retrieved_sections() -> None:
+    hits = [{"document_id": "ATLAS-RETURNS-001", "section": "Standard returns"}]
+    assert normalize_citations("Return it in time. [ATLAS-RETURNS-001]", hits) == (
+        "Return it in time. [ATLAS-RETURNS-001, Standard returns]"
+    )
+    assert normalize_citations("Return it in time.", hits).endswith(
+        "[ATLAS-RETURNS-001, Standard returns]"
+    )
+    assert (
+        normalize_citations("Return it in time. (ATLAS-RETURNS-001, Standard returns)", hits)
+        == "Return it in time. [ATLAS-RETURNS-001, Standard returns]"
+    )
+    assert (
+        normalize_citations("Return it in time. [[ATLAS-RETURNS-001, Standard returns]]", hits)
+        == "Return it in time. [ATLAS-RETURNS-001, Standard returns]"
+    )

@@ -25,9 +25,11 @@ class Settings(BaseSettings):
     rag_chunk_overlap_tokens: int = 80
     rag_dense_weight: float = 0.85
     rag_lexical_weight: float = 0.15
-    rag_score_threshold: float = 0.14
+    rag_score_threshold: float = 0.30
+    rag_fallback_score_threshold: float = 0.14
     rag_reranker_enabled: bool = False
     rag_reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    rag_local_model: str = "qwen3.5:9b"
 
 
 @lru_cache

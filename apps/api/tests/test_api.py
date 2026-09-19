@@ -44,6 +44,17 @@ def test_fixture_api_flow() -> None:
         assert search.status_code == 200
         assert search.json()["query_language"] == "cs"
 
+        invalid_model = client.post(
+            "/api/v1/rag/run",
+            json={"question": "Return window?", "mode": "local", "model": "../../secret"},
+        )
+        assert invalid_model.status_code == 422
+
+        too_many_results = client.post(
+            "/api/v1/rag/search", json={"question": "Return window?", "top_k": 21}
+        )
+        assert too_many_results.status_code == 422
+
         invalid_cloud_training = client.post(
             "/api/v1/training/run", json={"mode": "cloud", "epochs": 3}
         )

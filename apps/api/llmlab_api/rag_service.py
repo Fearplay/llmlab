@@ -15,7 +15,15 @@ import numpy as np
 from .contracts import ExecutionMode, GenerationRequest, RagRequest
 from .knowledge import corpus_fingerprint, load_documents, repository_root, resolve_corpus_dir
 from .providers import generate
-from .rag import Chunk, Embedder, SearchHit, chunk_documents, create_embedder, hybrid_search
+from .rag import (
+    Chunk,
+    Embedder,
+    MultilingualHashEmbedder,
+    SearchHit,
+    chunk_documents,
+    create_embedder,
+    hybrid_search,
+)
 from .settings import Settings
 
 SYSTEM_PROMPT = """You answer questions about the synthetic Atlas Works corpus.
@@ -69,6 +77,10 @@ class RagService:
             "fingerprint": index.fingerprint,
             "reranker_enabled": False,
             "reranker_model": self.settings.rag_reranker_model,
+            "local_generation_model": self.settings.rag_local_model,
+            "dense_weight": self.settings.rag_dense_weight,
+            "lexical_weight": self.settings.rag_lexical_weight,
+            "score_threshold": self._score_threshold(index),
             "documents": [
                 {**document.public_metadata(), "chunk_count": counts.get(document.document_id, 0)}
                 for document in index.documents
@@ -105,7 +117,7 @@ class RagService:
             "embedding_model": index.embedder.model_id,
             "vector_dimensions": index.embedder.dimensions,
             "top_k": top_k,
-            "score_threshold": self.settings.rag_score_threshold,
+            "score_threshold": self._score_threshold(index),
             "results": [hit_to_result(hit) for hit in hits],
             "latency_ms": round((time.perf_counter() - started) * 1000),
         }
@@ -121,7 +133,7 @@ class RagService:
         search = self.search(request.question, request.top_k)
         search_ms = round((time.perf_counter() - search_started) * 1000)
         hits = search["results"]
-        relevant = bool(hits and float(hits[0]["fused_score"]) >= self.settings.rag_score_threshold)
+        relevant = bool(hits and float(hits[0]["fused_score"]) >= search["score_threshold"])
         context = build_context(hits if relevant else [])
         prompt = build_prompt(request.question, context)
         generation_started = time.perf_counter()
@@ -173,7 +185,7 @@ class RagService:
                 ),
                 self.settings,
             )
-            answer = result.text
+            answer = normalize_citations(result.text, hits)
             usage = result.usage.model_dump()
             provider = result.provider
             model = result.model
@@ -211,7 +223,7 @@ class RagService:
                 "embedding_model": search["embedding_model"],
                 "vector_dimensions": search["vector_dimensions"],
                 "top_k": request.top_k,
-                "score_threshold": self.settings.rag_score_threshold,
+                "score_threshold": search["score_threshold"],
                 "generation_skipped": generation_skipped,
                 "dense_weight": self.settings.rag_dense_weight,
                 "lexical_weight": self.settings.rag_lexical_weight,
@@ -229,6 +241,11 @@ class RagService:
             },
             "latency_ms": round((time.perf_counter() - started) * 1000),
         }
+
+    def _score_threshold(self, index: LoadedIndex) -> float:
+        if index.embedder.model_id == MultilingualHashEmbedder.model_id:
+            return self.settings.rag_fallback_score_threshold
+        return self.settings.rag_score_threshold
 
     def _build(self, force: bool) -> LoadedIndex:
         parse_started = time.perf_counter()
@@ -366,6 +383,37 @@ def detect_language(question: str) -> str:
     ):
         return "cs"
     return "en"
+
+
+def normalize_citations(answer: str, hits: list[dict[str, Any]]) -> str:
+    """Complete model citations using only sections present in retrieved evidence."""
+    sections: dict[str, str] = {}
+    for hit in hits:
+        sections.setdefault(str(hit["document_id"]), str(hit["section"]))
+
+    def complete(match: re.Match[str]) -> str:
+        document_id = match.group(1)
+        section = sections.get(document_id)
+        return f"[{document_id}, {section}]" if section else match.group(0)
+
+    normalized = re.sub(
+        r"\[\[(ATLAS-[A-Z0-9-]+(?:,\s*[^\[\]]+)?)\]\]",
+        r"[\1]",
+        answer.strip(),
+    )
+    normalized = re.sub(
+        r"\((ATLAS-[A-Z0-9-]+(?:,\s*[^()]+)?)\)",
+        r"[\1]",
+        normalized,
+    )
+    normalized = re.sub(r"\[(ATLAS-[A-Z0-9-]+)\]", complete, normalized)
+    has_grounded_citation = any(
+        f"[{document_id}, {section}]" in normalized for document_id, section in sections.items()
+    )
+    if not has_grounded_citation and hits:
+        citation = f"[{hits[0]['document_id']}, {hits[0]['section']}]"
+        normalized = f"{normalized} {citation}".strip()
+    return normalized
 
 
 def build_context(results: list[dict[str, Any]]) -> str:

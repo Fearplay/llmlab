@@ -87,7 +87,7 @@ test("configures a real cloud provider and model in Prompt Lab", async ({ page }
   await page.goto("/ai-lab/prompt-tokens");
   await page.getByRole("button", { name: "Cloud" }).click();
   await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("openai");
-  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("gpt-4.1");
+  await expect(page.getByLabel("Model", { exact: true })).toHaveValue("gpt-5.4-mini");
   await page.getByRole("button", { name: "Model: open options" }).click();
   await expect(page.getByRole("option", { name: "gpt-6-astra" })).toBeVisible();
   await expect(page.getByRole("option", { name: "gpt-5.4-mini" })).toBeVisible();

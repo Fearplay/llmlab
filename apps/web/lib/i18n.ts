@@ -32,7 +32,7 @@ export const messages = {
       newComparison: "New comparison", pass: "Pass", fail: "Fail", on: "On", off: "Off", yes: "Yes", no: "No",
       case: "Case", slice: "Slice", select: "Select", tokens: "tokens", missing: "Missing", rows: "rows",
       active: "active", baseline: "baseline", characters: "characters", estimatedTokens: "estimated tokens",
-      input: "Input", output: "Output", latency: "Latency", schema: "Schema", valid: "Valid", state: "State",
+      input: "Input", output: "Output", latency: "Latency", schema: "Schema", valid: "Valid", invalid: "Invalid", state: "State",
       training: "Training", completed: "Completed", evidence: "Evidence", providerScore: "score", noResults: "No matching section",
     },
     nav: {
@@ -394,7 +394,7 @@ export const messages = {
       newComparison: "Nové porovnání", pass: "Splněno", fail: "Nesplněno", on: "Zapnuto", off: "Vypnuto", yes: "Ano", no: "Ne",
       case: "Případ", slice: "Řez", select: "Vybrat", tokens: "tokenů", missing: "Chybí", rows: "řádků",
       active: "aktivní", baseline: "baseline", characters: "znaků", estimatedTokens: "odhadovaných tokenů",
-      input: "Vstup", output: "Výstup", latency: "Latence", schema: "Schéma", valid: "Platné", state: "Stav",
+      input: "Vstup", output: "Výstup", latency: "Latence", schema: "Schéma", valid: "Platné", invalid: "Neplatné", state: "Stav",
       training: "Trénování", completed: "Dokončeno", evidence: "Důkaz", providerScore: "skóre", noResults: "Žádná odpovídající sekce",
     },
     nav: {

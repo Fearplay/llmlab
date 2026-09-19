@@ -4,7 +4,7 @@ import { Braces, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Button, Combobox, HelpLabel, InfoTip, MetricLabel, ModeSelector, Notice, PageHeader, Panel, ProvenanceStrip, Select } from "@/components/ui";
-import type { ExecutionMode } from "@/lib/types";
+import type { ExecutionMode, ProviderRecord } from "@/lib/types";
 
 const colors = ["token-blue", "token-green", "token-orange", "token-violet"];
 const fixtureOutput = `{
@@ -13,7 +13,7 @@ const fixtureOutput = `{
   "confidence": null
 }`;
 const cloudModelDefaults: Record<string, string> = {
-  openai: "gpt-4.1",
+  openai: "gpt-5.4-mini",
   anthropic: "claude-sonnet-5",
   gemini: "gemini-3.8-flash",
   openai_compatible: "model-name",
@@ -49,19 +49,29 @@ export function PromptTokensPage() {
   const [running, setRunning] = useState(false);
   const [provider, setProvider] = useState("openai");
   const [cloudModel, setCloudModel] = useState(cloudModelDefaults.openai);
-  const [localModel, setLocalModel] = useState("llama3.2");
+  const [localModel, setLocalModel] = useState("qwen3.5:9b");
   const [result, setResult] = useState<LiveGenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const tokens = useMemo(() => text.match(/[\w'-]+|[^\s\w]/g) ?? [], [text]);
+  const tokens = useMemo(() => tokenizePreview(text), [text]);
   useEffect(() => {
     queueMicrotask(() => {
       setText(t("labs.promptSample"));
       setSystemText(t("labs.systemSample"));
     });
   }, [t]);
+  useEffect(() => {
+    fetch("/api/v1/providers")
+      .then(async (response) => { if (!response.ok) throw new Error("Provider API unavailable"); return response.json() as Promise<ProviderRecord[]>; })
+      .then((items) => { const configured = items.find((item) => item.id === "ollama")?.default_model; if (configured) setLocalModel(configured); })
+      .catch(() => undefined);
+  }, []);
+  const invalidateResult = () => { setResult(null); setError(null); };
+  const changeMode = (next: ExecutionMode) => { setMode(next); invalidateResult(); };
   const activeProvider = mode === "fixture" ? "fixture" : mode === "local" ? "ollama" : provider;
   const activeModel = mode === "fixture" ? "fixture-gen-v2" : mode === "local" ? localModel : cloudModel;
-  const modelOptions = providerModels[activeProvider] ?? [];
+  const schemaSupported = mode === "fixture" || (mode === "cloud" && provider === "openai");
+  const schemaRequested = schemaSupported && structured;
+  const modelOptions = activeProvider === "ollama" ? [...new Set([localModel, ...(providerModels.ollama ?? [])])] : providerModels[activeProvider] ?? [];
   const run = async () => {
     setRunning(true);
     setError(null);
@@ -85,9 +95,9 @@ export function PromptTokensPage() {
           temperature,
           top_p: topP,
           seed,
-          response_schema: structured && provider === "openai" ? {
+          response_schema: schemaRequested ? {
             type: "object",
-            properties: { answer: { type: "string" }, citations: { type: "array", items: { type: "string" } }, confidence: { type: "number" } },
+            properties: { answer: { type: "string" }, citations: { type: "array", items: { type: "string" } }, confidence: { type: ["number", "null"] } },
             required: ["answer", "citations", "confidence"],
             additionalProperties: false,
           } : null,
@@ -111,30 +121,30 @@ export function PromptTokensPage() {
   };
 
   return <>
-    <PageHeader title={t("labs.promptTitle")} description={t("labs.promptSubtitle")} actions={<ModeSelector value={mode} onChange={setMode} />} helpKey="prompt.page" />
+    <PageHeader title={t("labs.promptTitle")} description={t("labs.promptSubtitle")} actions={<ModeSelector value={mode} onChange={changeMode} />} helpKey="prompt.page" />
     <ProvenanceStrip mode={result?.mode ?? mode} provider={result?.provider ?? activeProvider} model={result?.model ?? activeModel} tail={result ? `${result.usage.input_tokens + result.usage.output_tokens} tokens · ${result.latency_ms} ms` : t("labs.noResultYet")} />
     <Notice tone={mode === "fixture" ? "info" : "warning"} title={t(`labs.${mode}ModeTitle`)}>{t(`labs.${mode}ModeText`)}</Notice>
     {error && <Notice tone="danger" title={t("labs.requestFailed")}>{error}</Notice>}
     <div className="lab-grid two-one">
       <Panel title={t("labs.input")} helpKey="prompt.input">
-        <label className="field"><HelpLabel label={t("labs.systemLabel")} helpKey="prompt.system" /><textarea aria-label={t("labs.systemLabel")} rows={5} value={systemText} onChange={(event) => setSystemText(event.target.value)} /></label>
-        <label className="field"><HelpLabel label={t("labs.userMessage")} helpKey="prompt.message" /><textarea aria-label={t("labs.userMessage")} rows={7} value={text} onChange={(event) => setText(event.target.value)} /></label>
+        <label className="field"><HelpLabel label={t("labs.systemLabel")} helpKey="prompt.system" /><textarea aria-label={t("labs.systemLabel")} rows={5} value={systemText} onChange={(event) => { setSystemText(event.target.value); invalidateResult(); }} /></label>
+        <label className="field"><HelpLabel label={t("labs.userMessage")} helpKey="prompt.message" /><textarea aria-label={t("labs.userMessage")} rows={7} value={text} onChange={(event) => { setText(event.target.value); invalidateResult(); }} /></label>
         <div className="token-ribbon" aria-label="Token estimate">{tokens.map((token, index) => <span className={colors[index % colors.length]} key={`${token}-${index}`}>{token}</span>)}</div>
         <div className="token-summary"><Braces size={16} /><strong className="mono">{tokens.length}</strong><span>{t("labs.estimatedTokens")}</span><InfoTip label={t("labs.estimatedTokens")} helpKey="prompt.tokens" context="metric" /><small>{t("labs.measuredNote")}</small></div>
       </Panel>
       <Panel title={t("labs.samplingContract")} helpKey="prompt.sampling">
-        <label className="field"><HelpLabel label={t("app.provider")} helpKey="prompt.provider" /><Select value={activeProvider} disabled={mode !== "cloud"} onChange={(next) => { setProvider(next); setCloudModel(cloudModelDefaults[next] ?? "model-name"); setResult(null); }} ariaLabel={t("app.provider")}>{mode === "fixture" ? <option value="fixture">Fixture engine</option> : mode === "local" ? <option value="ollama">Ollama</option> : <><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openai_compatible">OpenAI-compatible</option></>}</Select></label>
-        <div className="field"><HelpLabel label={t("app.model")} helpKey="prompt.model" /><Combobox key={activeProvider} ariaLabel={t("app.model")} value={activeModel} options={modelOptions} disabled={mode === "fixture"} onChange={(next) => mode === "local" ? setLocalModel(next) : setCloudModel(next)} /><small>{t("labs.modelPickerHint")}</small></div>
-        <RangeField label={t("labs.temperature")} helpKey="prompt.temperature" value={temperature} onChange={setTemperature} max={2} step={0.1} />
-        <RangeField label={t("labs.topP")} helpKey="prompt.topP" value={topP} onChange={setTopP} max={1} step={0.05} />
-        <label className="field"><HelpLabel label={t("labs.seed")} helpKey="prompt.seed" /><input aria-label={t("labs.seed")} type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value))} /></label>
-        <label className="toggle-row"><input aria-label={t("labs.structured")} type="checkbox" checked={structured} onChange={(event) => setStructured(event.target.checked)} /><span><span className="toggle-title"><strong>{t("labs.structured")}</strong><InfoTip label={t("labs.structured")} helpKey="prompt.structured" context="field" /></span><small>{t("labs.schemaContract")}</small></span></label>
-        <label className="field"><HelpLabel label={t("labs.stopSequence")} helpKey="prompt.stop" /><Select value={stopSequence} onChange={setStopSequence} ariaLabel={t("labs.stopSequence")}><option value="none">{t("labs.none")}</option><option value="end">&lt;END&gt;</option></Select></label>
+        <label className="field"><HelpLabel label={t("app.provider")} helpKey="prompt.provider" /><Select value={activeProvider} disabled={mode !== "cloud"} onChange={(next) => { setProvider(next); setCloudModel(cloudModelDefaults[next] ?? "model-name"); invalidateResult(); }} ariaLabel={t("app.provider")}>{mode === "fixture" ? <option value="fixture">Fixture engine</option> : mode === "local" ? <option value="ollama">Ollama</option> : <><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openai_compatible">OpenAI-compatible</option></>}</Select></label>
+        <div className="field"><HelpLabel label={t("app.model")} helpKey="prompt.model" /><Combobox key={activeProvider} ariaLabel={t("app.model")} value={activeModel} options={modelOptions} disabled={mode === "fixture"} onChange={(next) => { if (mode === "local") setLocalModel(next); else setCloudModel(next); invalidateResult(); }} /><small>{t("labs.modelPickerHint")}</small></div>
+        <RangeField label={t("labs.temperature")} helpKey="prompt.temperature" value={temperature} onChange={(value) => { setTemperature(value); invalidateResult(); }} max={2} step={0.1} />
+        <RangeField label={t("labs.topP")} helpKey="prompt.topP" value={topP} onChange={(value) => { setTopP(value); invalidateResult(); }} max={1} step={0.05} />
+        <label className="field"><HelpLabel label={t("labs.seed")} helpKey="prompt.seed" /><input aria-label={t("labs.seed")} type="number" value={seed} onChange={(event) => { setSeed(Number(event.target.value)); invalidateResult(); }} /></label>
+        <label className="toggle-row"><input aria-label={t("labs.structured")} type="checkbox" checked={schemaRequested} disabled={!schemaSupported} onChange={(event) => { setStructured(event.target.checked); invalidateResult(); }} /><span><span className="toggle-title"><strong>{t("labs.structured")}</strong><InfoTip label={t("labs.structured")} helpKey="prompt.structured" context="field" /></span><small>{schemaSupported ? t("labs.schemaContract") : t("common.off")}</small></span></label>
+        <label className="field"><HelpLabel label={t("labs.stopSequence")} helpKey="prompt.stop" /><Select value={stopSequence} onChange={(value) => { setStopSequence(value); invalidateResult(); }} ariaLabel={t("labs.stopSequence")}><option value="none">{t("labs.none")}</option><option value="end">&lt;END&gt;</option></Select></label>
         <Button onClick={run} loading={running}><Play size={14} />{t("app.run")}</Button>
       </Panel>
     </div>
     <Panel title={t("labs.output")} helpKey="prompt.output" aside={<span className="panel-meta mono">seed {seed} · temp {temperature.toFixed(1)}</span>}>
-      {result ? <div className="output-layout"><pre className="code-output">{result.text}</pre><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{structured ? t("common.valid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
+      {result ? <div className="output-layout"><pre className="code-output">{result.text}</pre><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{schemaRequested ? (isStructuredOutputValid(result.text) ? t("common.valid") : t("common.invalid")) : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
     </Panel>
   </>;
 }
@@ -149,4 +159,20 @@ function explainGenerationError(caught: unknown, t: (key: string) => string) {
 
 function RangeField({ label, helpKey, value, onChange, max, step }: { label: string; helpKey: string; value: number; onChange: (value: number) => void; max: number; step: number }) {
   return <label className="field range-field"><span><HelpLabel label={label} helpKey={helpKey} /><strong className="mono">{value.toFixed(2)}</strong></span><input aria-label={label} type="range" min={0} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+}
+
+export function tokenizePreview(text: string): string[] {
+  return text.match(/[\p{L}\p{N}_'-]+|[^\s\p{L}\p{N}_]/gu) ?? [];
+}
+
+export function isStructuredOutputValid(text: string): boolean {
+  try {
+    const value = JSON.parse(text) as { answer?: unknown; citations?: unknown; confidence?: unknown };
+    return typeof value.answer === "string"
+      && Array.isArray(value.citations)
+      && value.citations.every((item) => typeof item === "string")
+      && (value.confidence === null || typeof value.confidence === "number");
+  } catch {
+    return false;
+  }
 }

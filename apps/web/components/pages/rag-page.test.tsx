@@ -1,7 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "@/components/app-provider";
 import { RagPage } from "./rag-page";
+import { splitGroundedClaims } from "./grounding-page";
+import { isStructuredOutputValid, tokenizePreview } from "./prompt-tokens-page";
 import type { RagRunResult, RagStatus } from "@/lib/types";
 
 const status: RagStatus = {
@@ -10,7 +12,7 @@ const status: RagStatus = {
   corpus_version: "1.0",
   synthetic: true,
   document_count: 16,
-  chunk_count: 69,
+  chunk_count: 95,
   embedding_model: "llmlab/multilingual-hash-v1",
   requested_embedding_model: "BAAI/bge-m3",
   embedding_warning: "BGE-M3 unavailable; offline fallback active.",
@@ -19,6 +21,10 @@ const status: RagStatus = {
   fingerprint: "sha256:test",
   reranker_enabled: false,
   reranker_model: "BAAI/bge-reranker-v2-m3",
+  local_generation_model: "qwen3.5:9b",
+  dense_weight: 0.85,
+  lexical_weight: 0.15,
+  score_threshold: 0.3,
   documents: [],
 };
 
@@ -43,7 +49,7 @@ const grounded: RagRunResult = {
 
 describe("RagPage", () => {
   beforeEach(() => { localStorage.clear(); localStorage.setItem("llmlab.locale", "cs"); });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it("loads real status and renders a Czech answer with English evidence", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).endsWith("/status") ? status : grounded), { status: 200, headers: { "Content-Type": "application/json" } })));
@@ -62,5 +68,53 @@ describe("RagPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Spustit skutečnou pipeline/i }));
     await waitFor(() => expect(screen.getAllByText(/Tuto informaci nelze/).length).toBeGreaterThan(0));
     await waitFor(() => expect(screen.getByText(/Generátor nebyl zavolán/)).toBeInTheDocument());
+  });
+
+  it("clears stale results when the execution mode changes", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).endsWith("/status") ? status : grounded), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<AppProvider><RagPage /></AppProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: /Spustit skutečnou pipeline/i }));
+    expect(await screen.findByText(/Běžné zařízení lze vrátit do 21/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Lokálně" }));
+    expect(screen.queryByText(/Běžné zařízení lze vrátit do 21/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Výsledky nejsou předvyplněné/).length).toBeGreaterThan(0);
+  });
+
+  it("does not present an unknown cloud price as zero cost", async () => {
+    const cloudResult: RagRunResult = {
+      ...grounded,
+      mode: "cloud",
+      provider: "openai",
+      model: "gpt-5.4-mini",
+      fixture: false,
+      usage: { ...grounded.usage, cost_usd: null },
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).endsWith("/status") ? status : cloudResult), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<AppProvider><RagPage /></AppProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: /Cloud/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Spustit skutečnou pipeline/i }));
+    expect(await screen.findByText(/cena nedostupná/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\$0/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Grounding claim parsing", () => {
+  it("keeps a document citation attached to its factual sentence", () => {
+    expect(splitGroundedClaims("A refund takes five business days. [ATLAS-RETURNS-001, Refund processing]")).toEqual([
+      "A refund takes five business days. [ATLAS-RETURNS-001, Refund processing]",
+    ]);
+  });
+});
+
+describe("Prompt token preview", () => {
+  it("keeps Czech words with diacritics intact", () => {
+    expect(tokenizePreview("Zařízení má čtrnáctidenní lhůtu.")).toEqual([
+      "Zařízení", "má", "čtrnáctidenní", "lhůtu", ".",
+    ]);
+  });
+
+  it("does not label plain text as schema-valid", () => {
+    expect(isStructuredOutputValid("plain text")).toBe(false);
+    expect(isStructuredOutputValid('{"answer":"ok","citations":[],"confidence":null}')).toBe(true);
   });
 });

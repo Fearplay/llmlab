@@ -79,11 +79,11 @@ export const compareCases: CompareCase[] = [
 ];
 
 export const providers: ProviderRecord[] = [
-  { id: "fixture", name: "Fixture engine", mode: "local", configured: true, reachable: true, detail: "Deterministic seeded outputs", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
-  { id: "ollama", name: "Ollama", mode: "local", configured: true, reachable: null, detail: "Check local service", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
-  { id: "openai", name: "OpenAI", mode: "cloud", configured: false, reachable: null, detail: "OPENAI_API_KEY missing", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
-  { id: "anthropic", name: "Anthropic", mode: "cloud", configured: false, reachable: null, detail: "ANTHROPIC_API_KEY missing", capabilities: { generation: true, embeddings: false, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
-  { id: "gemini", name: "Gemini", mode: "cloud", configured: false, reachable: null, detail: "GEMINI_API_KEY missing", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
+  { id: "fixture", name: "Fixture engine", mode: "local", configured: true, reachable: true, detail: "Deterministic seeded outputs", default_model: "fixture-gen-v2", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
+  { id: "ollama", name: "Ollama", mode: "local", configured: true, reachable: null, detail: "Check local service", default_model: "qwen3.5:9b", capabilities: { generation: true, embeddings: true, structured_output: false, streaming: true, tool_calling: true, token_usage: true } },
+  { id: "openai", name: "OpenAI", mode: "cloud", configured: false, reachable: null, detail: "OPENAI_API_KEY missing", default_model: "gpt-5.4-mini", capabilities: { generation: true, embeddings: true, structured_output: true, streaming: true, tool_calling: true, token_usage: true } },
+  { id: "anthropic", name: "Anthropic", mode: "cloud", configured: false, reachable: null, detail: "ANTHROPIC_API_KEY missing", capabilities: { generation: true, embeddings: false, structured_output: false, streaming: true, tool_calling: true, token_usage: true } },
+  { id: "gemini", name: "Gemini", mode: "cloud", configured: false, reachable: null, detail: "GEMINI_API_KEY missing", capabilities: { generation: true, embeddings: true, structured_output: false, streaming: true, tool_calling: true, token_usage: true } },
 ];
 
 export const agentTrace: TraceItem[] = [

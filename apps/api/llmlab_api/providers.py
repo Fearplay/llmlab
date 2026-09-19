@@ -29,7 +29,7 @@ CAPABILITIES = {
     "ollama": ProviderCapabilities(
         generation=True,
         embeddings=True,
-        structured_output=True,
+        structured_output=False,
         streaming=True,
         tool_calling=True,
         token_usage=True,
@@ -45,7 +45,7 @@ CAPABILITIES = {
     "anthropic": ProviderCapabilities(
         generation=True,
         embeddings=False,
-        structured_output=True,
+        structured_output=False,
         streaming=True,
         tool_calling=True,
         token_usage=True,
@@ -53,7 +53,7 @@ CAPABILITIES = {
     "gemini": ProviderCapabilities(
         generation=True,
         embeddings=True,
-        structured_output=True,
+        structured_output=False,
         streaming=True,
         tool_calling=True,
         token_usage=True,
@@ -78,6 +78,7 @@ def provider_views(settings: Settings) -> list[ProviderView]:
             configured=True,
             reachable=True,
             detail="Deterministic seeded outputs",
+            default_model="fixture-gen-v2",
             capabilities=CAPABILITIES["fixture"],
         ),
         ProviderView(
@@ -87,6 +88,7 @@ def provider_views(settings: Settings) -> list[ProviderView]:
             configured=True,
             reachable=None,
             detail=settings.ollama_base_url,
+            default_model=settings.rag_local_model,
             capabilities=CAPABILITIES["ollama"],
         ),
         ProviderView(
@@ -98,6 +100,7 @@ def provider_views(settings: Settings) -> list[ProviderView]:
             detail="Configured by OPENAI_API_KEY"
             if settings.openai_api_key
             else "OPENAI_API_KEY missing",
+            default_model="gpt-5.4-mini",
             capabilities=CAPABILITIES["openai"],
         ),
         ProviderView(
@@ -356,8 +359,21 @@ def _require(provider: str, capability: str) -> None:
 
 def _raise_provider_error(response: httpx.Response) -> None:
     if response.is_error:
-        detail = response.text[:800]
-        raise HTTPException(response.status_code, f"Provider request failed: {detail}")
+        provider_message = ""
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                error = payload.get("error")
+                if isinstance(error, dict) and isinstance(error.get("message"), str):
+                    provider_message = error["message"]
+                elif isinstance(payload.get("detail"), str):
+                    provider_message = payload["detail"]
+        except ValueError:
+            provider_message = response.text
+        detail = f"Provider request failed ({response.status_code})"
+        if provider_message:
+            detail = f"{detail}: {provider_message[:400]}"
+        raise HTTPException(response.status_code, detail)
 
 
 def _response_json(response: httpx.Response) -> dict[str, Any]:

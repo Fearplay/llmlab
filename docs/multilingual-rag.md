@@ -25,6 +25,14 @@ not available locally, LLMLab explicitly reports and uses `llmlab/multilingual-h
 offline Czech-English semantic-hashing fallback. It is useful for the bundled demonstration but
 is not represented as BGE-M3.
 
+`RAG_SCORE_THRESHOLD=0.30` is calibrated against the tracked multilingual evaluation set for the
+transformer path. The deterministic hash fallback has a separate
+`RAG_FALLBACK_SCORE_THRESHOLD=0.14`, because its fused scores use a different distribution. Both
+effective thresholds are returned by the API instead of being hidden in the browser.
+
+Set `RAG_LOCAL_MODEL` to an Ollama model that is installed on the API host. The bundled default is
+`qwen3.5:9b`; changing the environment value changes the Local model initially shown in the UI.
+
 ## Index lifecycle
 
 Generated files live in `apps/api/data/rag-index/` and are ignored by Git. The manifest fingerprint

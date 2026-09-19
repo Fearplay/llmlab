@@ -36,6 +36,7 @@ class ProviderView(BaseModel):
     configured: bool
     reachable: bool | None
     detail: str
+    default_model: str | None = None
     capabilities: ProviderCapabilities
 
 
@@ -149,8 +150,13 @@ class RagRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     mode: ExecutionMode = ExecutionMode.FIXTURE
     top_k: int = Field(5, ge=1, le=20)
-    provider: str = "fixture"
-    model: str = "fixture-grounded-v2"
+    provider: str = Field("fixture", min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    model: str = Field(
+        "fixture-grounded-v2",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+    )
     response_language: Literal["auto", "en", "cs"] = "auto"
 
 

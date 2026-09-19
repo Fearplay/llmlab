@@ -29,19 +29,27 @@ export function RagPage() {
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
 
+  const clearDisplayedResult = () => {
+    setResult(null);
+    setSelected(0);
+    setTab("chunk");
+    setError("");
+  };
+
   const changeMode = (next: ExecutionMode) => {
+    clearDisplayedResult();
     setMode(next);
     setDefaultMode(next);
     if (next === "fixture") { setProvider("fixture"); setModel("fixture-grounded-v2"); }
-    if (next === "local") { setProvider("ollama"); setModel("qwen3:8b"); }
+    if (next === "local") { setProvider("ollama"); setModel(status?.local_generation_model ?? "qwen3.5:9b"); }
     if (next === "cloud") { setProvider("openai"); setModel("gpt-5.4-mini"); }
   };
 
   const run = async () => {
-    setLoading(true); setError(""); setSelected(0);
+    setLoading(true); clearDisplayedResult();
     try {
       const response = await fetch("/api/v1/rag/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, mode, provider, model, top_k: topK, response_language: "auto" }) });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await apiError(response));
       const payload = await response.json() as RagRunResult;
       setResult(payload);
       localStorage.setItem("llmlab:last-rag", JSON.stringify(payload));
@@ -63,7 +71,7 @@ export function RagPage() {
     {status?.embedding_warning && <Notice tone="warning" title={locale === "cs" ? "Použit fallback embedding" : "Embedding fallback active"}>{status.embedding_warning}</Notice>}
     {error && <Notice tone="danger" title={locale === "cs" ? "Pipeline selhala" : "Pipeline failed"}>{error}</Notice>}
     <div className="question-row">
-      <label className="field"><HelpLabel label={locale === "cs" ? "Otázka" : "Question"} helpKey="field.ragQuestion" /><input maxLength={2000} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void run(); }} /></label>
+      <label className="field"><HelpLabel label={locale === "cs" ? "Otázka" : "Question"} helpKey="field.ragQuestion" /><input maxLength={2000} value={question} onChange={(event) => { setQuestion(event.target.value); clearDisplayedResult(); }} onKeyDown={(event) => { if (event.key === "Enter") void run(); }} /></label>
       <Button onClick={() => void run()} loading={loading} disabled={!question.trim()}><Play size={14} />{locale === "cs" ? "Spustit skutečnou pipeline" : "Run real pipeline"}</Button>
     </div>
     <p className="rag-truth-line"><Check size={14} />{provenance}</p>
@@ -74,9 +82,9 @@ export function RagPage() {
         <Readout label={locale === "cs" ? "Dokumenty" : "Documents"} value={status ? `${status.document_count} · English · synthetic` : "…"} />
         <Readout label="Embedding" value={status?.embedding_model ?? "…"} />
         <Readout label={locale === "cs" ? "Rozměr" : "Dimensions"} value={status ? String(status.vector_dimensions) : "…"} />
-        <label className="field"><HelpLabel label="Top K" /><input type="range" min={1} max={10} value={topK} onChange={(event) => setTopK(Number(event.target.value))} /><div className="range-output"><span>1</span><strong className="mono">{topK}</strong><span>10</span></div></label>
-        {mode === "cloud" && <label className="field"><HelpLabel label="Provider" /><Select value={provider} onChange={setProvider} ariaLabel="Provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openai_compatible">OpenAI-compatible</option></Select></label>}
-        {mode !== "fixture" && <label className="field"><HelpLabel label="Generator model" /><input value={model} onChange={(event) => setModel(event.target.value)} /></label>}
+        <label className="field"><HelpLabel label="Top K" /><input type="range" min={1} max={10} value={topK} onChange={(event) => { setTopK(Number(event.target.value)); clearDisplayedResult(); }} /><div className="range-output"><span>1</span><strong className="mono">{topK}</strong><span>10</span></div></label>
+        {mode === "cloud" && <label className="field"><HelpLabel label="Provider" /><Select value={provider} onChange={(value) => { setProvider(value); clearDisplayedResult(); }} ariaLabel="Provider"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openai_compatible">OpenAI-compatible</option></Select></label>}
+        {mode !== "fixture" && <label className="field"><HelpLabel label="Generator model" /><input value={model} onChange={(event) => { setModel(event.target.value); clearDisplayedResult(); }} /></label>}
         <div className={`mode-explainer mode-${mode}`}><strong>{mode}</strong><span>{provenance}</span></div>
       </Panel>
 
@@ -111,5 +119,18 @@ function ChunkInspector({ chunk }: { chunk: RagSearchResult }) {
 }
 function Score({ label, value }: { label: string; value: number | null }) { return <div><span>{label}</span><strong className="mono">{value === null ? "not run" : value.toFixed(4)}</strong></div>; }
 function Answer({ result, locale }: { result: RagRunResult; locale: string }) {
-  return <section className={`rag-answer ${result.retrieval.generation_skipped ? "refused" : ""}`}><header><strong>{locale === "cs" ? "Odpověď" : "Answer"}</strong><span className="mono">{result.latency_ms} ms · ${result.usage.cost_usd ?? 0}</span></header><p>{result.answer}</p>{result.retrieval.generation_skipped && <small><AlertTriangle size={13} />{locale === "cs" ? "Generátor nebyl zavolán: nejlepší skóre nesplnilo práh relevance." : "Generator was not called: the best score did not meet the relevance threshold."}</small>}<footer className="mono">{result.provider} / {result.model} · input {result.usage.input_tokens} · output {result.usage.output_tokens}</footer></section>;
+  const cost = result.usage.cost_usd === null
+    ? (locale === "cs" ? "cena nedostupná" : "cost unavailable")
+    : result.usage.cost_usd === 0 ? "$0" : `$${result.usage.cost_usd.toFixed(6)}`;
+  return <section className={`rag-answer ${result.retrieval.generation_skipped ? "refused" : ""}`}><header><strong>{locale === "cs" ? "Odpověď" : "Answer"}</strong><span className="mono">{result.latency_ms} ms · {cost}</span></header><p>{result.answer}</p>{result.retrieval.generation_skipped && <small><AlertTriangle size={13} />{locale === "cs" ? "Generátor nebyl zavolán: nejlepší skóre nesplnilo práh relevance." : "Generator was not called: the best score did not meet the relevance threshold."}</small>}<footer className="mono">{result.provider} / {result.model} · input {result.usage.input_tokens} · output {result.usage.output_tokens}</footer></section>;
+}
+
+async function apiError(response: Response): Promise<string> {
+  try {
+    const payload = await response.json() as { detail?: unknown };
+    if (typeof payload.detail === "string") return payload.detail;
+  } catch {
+    // Fall through to a concise status message when the response is not JSON.
+  }
+  return `Request failed (${response.status})`;
 }

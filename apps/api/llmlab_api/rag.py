@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import math
 import re
 import unicodedata
 from collections import Counter
 from dataclasses import asdict, dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -123,11 +124,11 @@ class MultilingualHashEmbedder:
 
 class SentenceTransformerEmbedder:
     def __init__(self, model_id: str, allow_download: bool = False) -> None:
-        from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+        module: Any = importlib.import_module("sentence_transformers")
 
         self.model_id = model_id
-        self._model = SentenceTransformer(model_id, local_files_only=not allow_download)
-        dimensions = self._model.get_sentence_embedding_dimension()
+        self._model = module.SentenceTransformer(model_id, local_files_only=not allow_download)
+        dimensions = self._model.get_embedding_dimension()
         if dimensions is None:
             raise RuntimeError("Embedding model did not report its vector dimensions")
         self.dimensions = int(dimensions)

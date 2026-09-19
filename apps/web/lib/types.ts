@@ -25,6 +25,7 @@ export interface ProviderRecord {
   configured: boolean;
   reachable: boolean | null;
   detail: string;
+  default_model?: string | null;
   capabilities: ProviderCapabilities;
 }
 
@@ -101,6 +102,10 @@ export interface RagStatus {
   fingerprint: string;
   reranker_enabled: boolean;
   reranker_model: string;
+  local_generation_model: string;
+  dense_weight: number;
+  lexical_weight: number;
+  score_threshold: number;
   documents: KnowledgeDocument[];
 }
 
