@@ -54,6 +54,9 @@ class GenerationRequest(BaseModel):
     messages: list[dict[str, str]]
     temperature: float = Field(0.2, ge=0, le=2)
     top_p: float = Field(0.9, ge=0, le=1)
+    max_tokens: int = Field(512, ge=1, le=32768)
+    stop: list[str] = Field(default_factory=list, max_length=8)
+    stop_sequence: str | None = None
     seed: int | None = None
     response_schema: dict[str, Any] | None = None
 
@@ -66,6 +69,8 @@ class GenerationResult(BaseModel):
     usage: Usage
     latency_ms: int
     fixture: bool
+    applied_settings: dict[str, Any] = Field(default_factory=dict)
+    run_id: str | None = None
 
 
 class EmbeddingRequest(BaseModel):

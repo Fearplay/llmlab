@@ -39,6 +39,9 @@ artifacts/
 apps/api/data/rag-index/
 apps/api/data/rag-test-index*/
 .reference-documentary-rag/
+.local-data/
+.uv-cache/
+output/playwright/
 *.log
 *.pid
 .DS_Store

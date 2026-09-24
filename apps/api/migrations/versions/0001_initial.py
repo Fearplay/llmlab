@@ -4,7 +4,6 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from pgvector.sqlalchemy import Vector
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -13,8 +12,6 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    if op.get_bind().dialect.name == "postgresql":
-        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.create_table(
         "runs",
         sa.Column("id", sa.String(40), primary_key=True),
@@ -63,7 +60,7 @@ def upgrade() -> None:
         sa.Column("collection", sa.String(120), nullable=False),
         sa.Column("source", sa.String(500), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("embedding", Vector(1536), nullable=False),
+        sa.Column("embedding", sa.JSON(), nullable=False),
         sa.Column("metadata_json", sa.JSON(), nullable=False),
     )
     op.create_index("ix_embedding_chunks_collection", "embedding_chunks", ["collection"])

@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
+from . import game_api, lab_api, model_catalog, pricing, secret_settings, user_rag_api
 from .contracts import (
     EmbeddingRequest,
     EmbeddingResult,
@@ -27,6 +28,7 @@ from .contracts import (
     RunStatus,
     RunView,
     TrainingRequest,
+    Usage,
 )
 from .database import SessionLocal, create_tables, get_db
 from .evaluators import evaluate
@@ -43,6 +45,8 @@ from .worker import run_fixture
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_tables()
+    lab_api.resume_pending()
+    game_api.reconcile_interrupted_games()
     yield
 
 
@@ -54,6 +58,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(model_catalog.router)
+app.include_router(pricing.router)
+app.include_router(secret_settings.router)
+app.include_router(lab_api.router)
+app.include_router(game_api.router)
+app.include_router(user_rag_api.router)
 
 
 @app.get("/health/live", tags=["health"])
@@ -74,9 +84,62 @@ def providers(settings: Settings = Depends(get_settings)) -> list[dict[str, Any]
 
 @app.post("/api/v1/generation", response_model=GenerationResult, tags=["providers"])
 async def generation(
-    request: GenerationRequest, settings: Settings = Depends(get_settings)
+    request: GenerationRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> GenerationResult:
-    return await generate(request, settings)
+    spec = request.model_dump(mode="json")
+    run_id = f"run_{uuid.uuid4().hex[:12]}"
+    row = Run(
+        id=run_id,
+        kind="prompt",
+        name="Prompt a tokeny",
+        status="running",
+        mode=request.mode.value,
+        provider=request.provider,
+        model=request.model,
+        dataset_version="none",
+        prompt_version="inline",
+        evaluator_versions=[],
+        config_hash=hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest(),
+        git_sha=settings.git_sha,
+        progress=0,
+        usage={},
+        spec=spec,
+        results=[],
+        metrics={},
+        trace=[],
+    )
+    db.add(row)
+    db.commit()
+    try:
+        result = await generate(request, settings)
+    except Exception as error:
+        row.status = "failed"
+        row.error = str(error)[:500]
+        row.completed_at = datetime.now(UTC)
+        db.commit()
+        raise
+    usage = result.usage.model_dump()
+    model_key = f"{request.provider}:{request.model}"
+    row.results = [
+        {
+            "model_key": model_key,
+            "case_id": "prompt-1",
+            "status": "completed",
+            "output": result.text,
+            "latency_ms": result.latency_ms,
+            "usage": usage,
+            "cost": pricing.estimate_usage_cost(model_key, usage),
+            "applied_settings": result.applied_settings,
+        }
+    ]
+    row.usage = usage
+    row.status = "completed"
+    row.progress = 100
+    row.completed_at = datetime.now(UTC)
+    db.commit()
+    return result.model_copy(update={"run_id": run_id})
 
 
 @app.post("/api/v1/embeddings", response_model=EmbeddingResult, tags=["providers"])
@@ -263,7 +326,7 @@ def _run_view(row: Run) -> RunView:
         config_hash=row.config_hash,
         git_sha=row.git_sha,
         progress=row.progress,
-        usage=row.usage or {},
+        usage=Usage.model_validate(row.usage or {}),
         created_at=row.created_at or datetime.now(UTC),
         completed_at=row.completed_at,
     )
