@@ -60,7 +60,9 @@ Porovnání běhů má vlastní adresu `/experiments/compare`. Starší adresy `
 
 ## Cloudové modely
 
-Klíče OpenAI, Anthropic a Gemini můžete zadat v **Nastavení → Připojení**, nebo do serverového `.env` jako `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. Klíč se z API neposílá zpět do prohlížeče. Lokální Ollama API klíč nepotřebuje. Na stránce **Poskytovatelé** uvidíte aktuální dostupnost; seznam Ollama modelů vychází z `GET /api/tags`, nikoli z pevného výčtu v aplikaci.
+Klíče OpenAI, Anthropic a Gemini můžete zadat v **Nastavení → Cloudové API klíče**, nebo do serverového `.env` jako `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. Klíč se z API neposílá zpět do prohlížeče. Lokální Ollama API klíč nepotřebuje. Na stránce **Poskytovatelé** uvidíte aktuální dostupnost; seznam Ollama modelů vychází z `GET /api/tags`, nikoli z pevného výčtu v aplikaci.
+
+Pro server kompatibilní s API OpenAI nastavte v serverovém `.env` `OPENAI_COMPATIBLE_BASE_URL`. Vyžaduje-li server ověření, přidejte `OPENAI_COMPATIBLE_API_KEY` v Nastavení nebo v `.env`.
 
 Odhady cen používají pouze ověřené běžné textové API sazby. Může se lišit region, délka kontextu, cache, nástroje, multimédia a skutečná faktura. Aktuální zdroje ceníku: [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), [Gemini](https://ai.google.dev/gemini-api/docs/pricing). Model bez ověřené sazby lze používat, ale jeho cena se nezapočte jako nula.
 

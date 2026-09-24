@@ -58,7 +58,9 @@ The run comparison has its own route at `/experiments/compare`. Older links to `
 
 ## Cloud models and cost
 
-Add OpenAI, Anthropic, or Gemini credentials under **Settings → Connections**, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` in the server `.env`. The API never returns a stored secret to the browser. Local Ollama requires no key. The model picker reflects the current `GET /api/tags` response from Ollama and configured cloud providers.
+Add OpenAI, Anthropic, or Gemini credentials under **Settings → Cloud API keys**, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` in the server `.env`. The API never returns a stored secret to the browser. Local Ollama requires no key. The model picker reflects the current `GET /api/tags` response from Ollama and configured cloud providers.
+
+For an OpenAI-compatible server, set `OPENAI_COMPATIBLE_BASE_URL` in the server `.env`. If that server requires authentication, add `OPENAI_COMPATIBLE_API_KEY` in Settings or `.env`.
 
 Prices are conservative estimates for listed standard text API rates, not invoices. Context tiers, cached usage, tools, regions, and multimodal input may change the actual charge. See the [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), and [Gemini](https://ai.google.dev/gemini-api/docs/pricing) price lists.
 
