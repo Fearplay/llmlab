@@ -10,8 +10,10 @@
 .body { display: grid; gap: 17px; padding: 20px; }
 .question, .answer { padding: 17px; border: 1px solid var(--line); }
 .answer { border-left: 3px solid var(--blue); background: var(--blue-soft); }
-.question span, .answer span { color: var(--blue); font: 600 10px "IBM Plex Mono", monospace; letter-spacing: .07em; }
+.question > span, .answer > span { color: var(--blue); font: 600 10px "IBM Plex Mono", monospace; letter-spacing: .07em; }
 .question p, .answer p { margin: 9px 0 0; white-space: pre-wrap; font-size: 13px; line-height: 1.65; }
+.answer :global(.answer-reveal) { margin-top: 8px; }
+.answer :global(.answer-reveal) pre { font-size: 13px; }
 .metric { margin: 0; color: var(--ink-soft); font-size: 11px; }
 .saved { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--green); font-size: 11px; }
 .comment { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }

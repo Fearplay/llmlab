@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from .contracts import EmbeddingRequest, ExecutionMode, GenerationRequest
 from .database import get_db
+from .knowledge import repository_root
 from .model_catalog import discover_models
 from .models import EmbeddingChunk, Run, UserDocument
 from .pricing import estimate_usage_cost
@@ -56,6 +57,15 @@ class UserRagAsk(UserRagQuery):
     generation_model_key: str
     temperature: float = Field(0.2, ge=0, le=2)
     max_tokens: int = Field(512, ge=1, le=8192)
+
+
+class TextDocumentRequest(BaseModel):
+    name: str = Field("Vložený text", min_length=1, max_length=120)
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+    strategy: Strategy = "fixed"
+    chunk_size: int = Field(450, ge=40, le=2000)
+    overlap: int = Field(80, ge=0, le=500)
+    embedding_model_key: str
 
 
 def _parts(model_key: str) -> tuple[str, str, ExecutionMode]:
@@ -247,42 +257,65 @@ def list_user_documents(db: Session = Depends(get_db)) -> dict[str, Any]:
     return {"documents": [_document_view(row) for row in rows]}
 
 
-@router.post("/user-documents", status_code=201)
-async def upload_user_document(
-    file: UploadFile = File(...),
-    strategy: Strategy = Form("fixed"),
-    chunk_size: int = Form(450, ge=40, le=2000),
-    overlap: int = Form(80, ge=0, le=500),
-    embedding_model_key: str = Form(...),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-) -> dict[str, Any]:
+@router.get("/user-rag/sample-text")
+def get_sample_text() -> dict[str, str]:
+    """Return the existing synthetic long-form RAG example as editable text."""
+    path = repository_root() / "knowledge" / "en" / "customer-support-operations.md"
+    return {"name": "Atlas Works – Customer Support Operations",
+            "text": path.read_text(encoding="utf-8")}
+
+
+def _validate_document_text(text: str, chunk_size: int, overlap: int) -> None:
     if overlap >= chunk_size:
         raise HTTPException(422, "Overlap must be smaller than chunk size")
-    await _validate_model(embedding_model_key, "embeddings", settings)
-    name = ntpath.basename(file.filename or "")
-    if not name:
-        raise HTTPException(422, "Choose a named document")
-    data = await file.read(MAX_FILE_BYTES + 1)
-    if len(data) > MAX_FILE_BYTES:
-        raise HTTPException(413, "File exceeds 10 MB. Split it before upload.")
-    text, pages = _extract(name, data)
     if not text.strip():
-        raise HTTPException(422, "No selectable text found. Scanned PDFs require OCR first.")
+        raise HTTPException(422, "Document text cannot be empty")
     if len(text) > MAX_TEXT_CHARS:
-        raise HTTPException(413, "Extracted text exceeds 100,000 characters. Split the document.")
-    slices = await _chunk_slices(text, strategy, chunk_size, overlap, embedding_model_key, settings)
+        raise HTTPException(413, "Text exceeds 100,000 characters. Split the document.")
+
+
+async def _document_slices(
+    text: str, strategy: Strategy, chunk_size: int, overlap: int,
+    embedding_model_key: str, settings: Settings,
+) -> list[Slice]:
+    _validate_document_text(text, chunk_size, overlap)
+    slices = await _chunk_slices(text, strategy, chunk_size, overlap,
+                                 embedding_model_key, settings)
     if len(slices) > MAX_CHUNKS:
         raise HTTPException(422, "More than 256 chunks; increase chunk size or split the document")
+    return slices
+
+
+@router.post("/user-documents/text/preview")
+async def preview_text_document(
+    request: TextDocumentRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    if request.strategy == "semantic":
+        await _validate_model(request.embedding_model_key, "embeddings", settings)
+    slices = await _document_slices(request.text, request.strategy, request.chunk_size,
+                                    request.overlap, request.embedding_model_key, settings)
+    return {"chunks": [{"text": request.text[item.start:item.end],
+                        "start": item.start, "end": item.end} for item in slices]}
+
+
+async def _index_document(
+    *, name: str, media_type: str, text: str, pages: list[dict[str, int]],
+    source_bytes: bytes, source_kind: str, strategy: Strategy, chunk_size: int,
+    overlap: int, embedding_model_key: str, db: Session, settings: Settings,
+) -> dict[str, Any]:
+    await _validate_model(embedding_model_key, "embeddings", settings)
+    slices = await _document_slices(text, strategy, chunk_size, overlap,
+                                    embedding_model_key, settings)
     vectors = await _embed_texts([text[item.start:item.end] for item in slices],
                                  embedding_model_key, settings)
     doc_id = f"doc_{uuid.uuid4().hex[:24]}"
-    suffix = name.rsplit(".", 1)[-1].lower()
     document = UserDocument(
-        id=doc_id, name=name, media_type=suffix, text=text,
+        id=doc_id, name=name, media_type=media_type, text=text,
         metadata_json={"strategy": strategy, "chunk_size": chunk_size, "overlap": overlap,
                        "embedding_model_key": embedding_model_key, "chunk_count": len(slices),
-                       "sha256": hashlib.sha256(data).hexdigest()},
+                       "source_kind": source_kind,
+                       "sha256": hashlib.sha256(source_bytes).hexdigest()},
     )
     db.add(document)
     for item, vector in zip(slices, vectors, strict=True):
@@ -298,6 +331,50 @@ async def upload_user_document(
     return {"document": _document_view(document)}
 
 
+@router.post("/user-documents/text", status_code=201)
+async def create_text_document(
+    request: TextDocumentRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    name = request.name.strip()
+    if not name:
+        raise HTTPException(422, "Name cannot be empty")
+    return await _index_document(
+        name=name, media_type="txt", text=request.text, pages=[],
+        source_bytes=request.text.encode("utf-8"), source_kind="pasted",
+        strategy=request.strategy, chunk_size=request.chunk_size, overlap=request.overlap,
+        embedding_model_key=request.embedding_model_key, db=db, settings=settings,
+    )
+
+
+@router.post("/user-documents", status_code=201)
+async def upload_user_document(
+    file: UploadFile = File(...),
+    strategy: Strategy = Form("fixed"),
+    chunk_size: int = Form(450, ge=40, le=2000),
+    overlap: int = Form(80, ge=0, le=500),
+    embedding_model_key: str = Form(...),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    name = ntpath.basename(file.filename or "")
+    if not name:
+        raise HTTPException(422, "Choose a named document")
+    data = await file.read(MAX_FILE_BYTES + 1)
+    if len(data) > MAX_FILE_BYTES:
+        raise HTTPException(413, "File exceeds 10 MB. Split it before upload.")
+    text, pages = _extract(name, data)
+    if not text.strip():
+        raise HTTPException(422, "No selectable text found. Scanned PDFs require OCR first.")
+    suffix = name.rsplit(".", 1)[-1].lower()
+    return await _index_document(
+        name=name, media_type=suffix, text=text, pages=pages, source_bytes=data,
+        source_kind="file", strategy=strategy, chunk_size=chunk_size, overlap=overlap,
+        embedding_model_key=embedding_model_key, db=db, settings=settings,
+    )
+
+
 @router.get("/user-documents/{document_id}/chunks")
 def list_document_chunks(document_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
     document = db.get(UserDocument, document_id)
@@ -306,6 +383,7 @@ def list_document_chunks(document_id: str, db: Session = Depends(get_db)) -> dic
     rows = db.scalars(select(EmbeddingChunk).where(
         EmbeddingChunk.collection == f"user:{document_id}"
     )).all()
+    rows.sort(key=lambda row: (row.metadata_json["start"], row.metadata_json["end"]))
     return {"document": _document_view(document), "chunks": [
         {"id": row.id, "text": row.content, **row.metadata_json} for row in rows
     ]}

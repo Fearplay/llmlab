@@ -25,7 +25,7 @@ Pick an available model at the top right, then try **Prompts & tokens**. Your in
 | Prompts & tokens | Follow nine lessons and vary system instructions, temperature, top-p, output limit, stop sequences, and JSON schema. |
 | Model arena | Run the same prompt on up to eight available models. Compare answers, latency, tokens, and estimated cost. Reference based grading, an optional judge model, and evidence order checks are available. |
 | Datasets & evaluation | Create datasets manually or import CSV, JSON, or JSONL. Run exact, partial, contains, or JSON schema checks. |
-| RAG | Upload your own PDF, DOCX, TXT, or Markdown files; try four chunking methods, embeddings, top-k retrieval, optional BM25 reranking, and excerpt citations. Citation markers do not prove every claim is factually supported. |
+| RAG | Paste your own text, load the long synthetic Atlas Works example, or upload PDF, DOCX, TXT, and Markdown files. Preview exact chunk boundaries and overlap before indexing, then inspect the stored chunks, embeddings, top-k retrieval, optional BM25 reranking, and excerpt citations. Citation markers do not prove every claim is factually supported. |
 | Agents & safety | Use bounded simulated file, database, and calculator tools with memory and reflection settings. Safety exercises use a fake key and simulated operations. |
 | Flappy AI | Play yourself or run random, rule, LLM, or trained DQN agents. Inspect scores, decisions, replays, and DQN checkpoints. LLM agents receive game state, not image frames. |
 | Cost & operations | See daily runs, token charts, model totals, and estimates based on provider price lists. Unknown prices remain unknown. |

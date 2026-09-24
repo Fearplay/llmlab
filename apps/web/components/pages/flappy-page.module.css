@@ -4,7 +4,8 @@
 .header p { max-width: 650px; margin: 0 0 14px; color: var(--ink-soft); line-height: 1.55; }
 .headerStats { display: grid; min-width: 145px; margin-bottom: 12px; text-align: right; }
 .headerStats strong { color: var(--blue); font: 600 42px/1 "IBM Plex Mono", monospace; }
-.headerStats span { max-width: 160px; color: var(--ink-soft); font-size: 12px; line-height: 1.3; }
+.statLabel { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.statLabel > span { max-width: 160px; color: var(--ink-soft); font-size: 12px; line-height: 1.3; }
 .layout { display: grid; grid-template-columns: minmax(310px, 480px) minmax(320px, 1fr); align-items: start; gap: clamp(20px, 3vw, 40px); }
 .playArea { position: sticky; top: 72px; }
 .boardShell { overflow: hidden; border: 1px solid var(--line); background: var(--paper); box-shadow: var(--shadow); }
@@ -21,6 +22,7 @@
 .controls { display: grid; align-content: start; gap: 16px; }
 .controlSection { padding: 19px 21px 21px; border: 1px solid var(--line); background: var(--paper); }
 .controlSection h2 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.025em; }
+.controlSection .helpHeading { display: flex; align-items: center; gap: 8px; }
 .controlSection p { margin: 0 0 15px; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
 .controlSection button, .replayControl button, .sectionHeading button { min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); background: var(--paper-strong); color: var(--ink); font-size: 12px; }
 .controlSection button:hover:not(:disabled), .replayControl button:hover, .sectionHeading button:hover { border-color: var(--blue); }
@@ -32,6 +34,7 @@
 .seedLabel input, .search { width: 100%; min-height: 35px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 0; background: var(--paper-strong); color: var(--ink); font: 12px "IBM Plex Mono", monospace; }
 .buttonGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .search { margin-bottom: 9px; font-family: "IBM Plex Sans", sans-serif; }
+.searchHelp { margin: 2px 0 7px; font-size: 12px; }
 .modelList { max-height: 177px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--line-soft); }
 .modelList label { display: flex; align-items: center; gap: 9px; min-height: 41px; padding: 6px 9px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
 .modelList label:last-child { border-bottom: 0; }
@@ -42,6 +45,35 @@
 .modelList small { color: var(--ink-faint); font: 10px "IBM Plex Mono", monospace; }
 .modelList p { padding: 11px; margin: 0; }
 .running { display: block; margin: 10px 0 0 !important; color: var(--blue) !important; font-size: 11px !important; }
+.checkpointNote { margin: 10px 0 0 !important; color: var(--green) !important; }
+.trainingProgress { display: grid; gap: 6px; margin-top: 12px; color: var(--ink-soft); font: 11px "IBM Plex Mono", monospace; }
+.trainingProgress progress { width: 100%; height: 8px; accent-color: var(--blue); }
+.controlSection .showcaseButton { display: block; margin-top: 9px; border-color: var(--green); color: var(--green); }
+.showcase { padding: 19px 20px 21px; border: 1px solid var(--line); background: var(--paper); }
+.showcaseHeading { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.showcaseHeading h2 { margin: 0 0 4px; font-size: 19px; }
+.showcaseHeading p, .showcaseResult { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.showcaseHeading > strong { flex: 0 0 auto; padding: 7px 10px; border: 1px solid currentColor; font: 600 19px "IBM Plex Mono", monospace; }
+.targetMet { color: var(--green); }
+.targetMissed { color: var(--orange); }
+.showcaseResult { margin: 11px 0 16px; color: var(--ink); }
+.birdGrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+.birdCard { min-width: 0; padding: 5px; border: 1px solid var(--line); background: var(--paper-strong); }
+.birdWinner { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.birdCardHead { display: flex; justify-content: space-between; align-items: baseline; gap: 3px; margin-bottom: 4px; font: 11px "IBM Plex Mono", monospace; }
+.birdCardHead span { color: var(--ink-soft); white-space: nowrap; }
+.birdCard svg { display: block; width: 100%; height: auto; }
+.birdCard small { display: block; margin-top: 4px; overflow: hidden; color: var(--ink-soft); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.scoreBars { display: grid; gap: 10px; padding: 9px 0 16px; }
+.scoreBar { display: grid; grid-template-columns: minmax(100px, 180px) minmax(80px, 1fr) 40px; align-items: center; gap: 12px; font-size: 11px; }
+.scoreBar > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scoreBar > div { height: 9px; background: var(--surface-muted); }
+.scoreBar i { display: block; height: 100%; background: var(--blue); }
+.scoreBar strong { font: 600 11px "IBM Plex Mono", monospace; text-align: right; }
+.costSummary { display: flex; align-items: baseline; gap: 18px; padding: 8px 0 18px; }
+.costSummary strong { color: var(--blue); font: 600 28px "IBM Plex Mono", monospace; }
+.costSummary span, .costNote { color: var(--ink-soft); font-size: 11px; }
+.costNote { padding-bottom: 10px; }
 .results { padding: 18px 20px 8px; border: 1px solid var(--line); background: var(--paper); }
 .sectionHeading { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
 .sectionHeading h2 { margin: 0 0 3px; font-size: 18px; letter-spacing: -.025em; }
@@ -60,10 +92,14 @@
 .history button > span:first-child { display: grid; gap: 3px; min-width: 0; }
 .history strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .history small { color: var(--ink-faint); font: 10px "IBM Plex Mono", monospace; }
+.history .invalid { color: var(--red); }
 .history button > span:nth-child(2) { font: 11px "IBM Plex Mono", monospace; }
+.history button > span:nth-child(2) :global(.run-status) { margin-right: 7px; }
 .history button > span:last-child { color: var(--blue); font-size: 11px; text-align: right; }
 .empty { padding: 16px 0 22px; margin: 0; color: var(--ink-soft); font-size: 12px; }
 .error { padding: 12px 14px; border: 1px solid var(--red); background: var(--red-soft); color: var(--red); font-size: 12px; }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .playArea { position: static; max-width: 560px; } .board { height: min(65vh, 580px); } }
-@media (max-width: 620px) { .header { align-items: start; } .headerStats { min-width: 70px; } .headerStats strong { font-size: 27px; } .headerStats span { font-size: 10px; } .controlSection, .results { padding-right: 13px; padding-left: 13px; } .board { min-height: 320px; } .history button { grid-template-columns: minmax(95px, 1fr) minmax(70px, auto); } .history button > span:last-child { display: none; } }
+@media (max-width: 950px) { .birdGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .birdGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .showcaseHeading { flex-wrap: wrap; } }
+@media (max-width: 620px) { .header { align-items: start; } .headerStats { min-width: 70px; } .headerStats strong { font-size: 27px; } .statLabel > span { font-size: 10px; } .controlSection, .results { padding-right: 13px; padding-left: 13px; } .board { min-height: 320px; } .history button { grid-template-columns: minmax(95px, 1fr) minmax(70px, auto); } .history button > span:last-child { display: none; } .costSummary { display: grid; gap: 3px; } .scoreBar { grid-template-columns: minmax(70px, 100px) minmax(50px, 1fr) 32px; gap: 7px; } }
 @media (prefers-reduced-motion: reduce) { .page *, .page *::before, .page *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; } }

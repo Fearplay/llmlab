@@ -29,6 +29,9 @@ describe("RagPage", () => {
     render(<AppProvider><RagPage /></AppProvider>);
     expect(await screen.findByText("Zatím žádný dokument")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Vyhledat a odpovědět/i })).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Text dokumentu" }), { target: { value: "Text pro nový RAG dokument." } });
+    expect(screen.getByText("Text z kroku 1 ještě není indexovaný")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Indexovat text z kroku 1" })).toBeInTheDocument();
   });
 
   it("answers using a selected document and shows the exact cited excerpt", async () => {
@@ -41,6 +44,44 @@ describe("RagPage", () => {
     expect(screen.getByText(/Standard hardware can be returned within 21/)).toBeInTheDocument();
     expect(screen.getByText(/Pravdivost jednotlivých tvrzení ověřte/)).toBeInTheDocument();
     await waitFor(() => expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => String(url).endsWith("/user-rag/ask"))).toBe(true));
+  });
+
+  it("loads the long example into step 2 and makes it available to questions", async () => {
+    const sampleText = "Atlas Works support policy. ".repeat(12);
+    const pastedDocument = { ...document, id: "doc_pasted", name: "Atlas Works example", chunk_count: 2 };
+    const chunks = [
+      { id: "chk_a", text: sampleText.slice(0, 160), start: 0, end: 160, page: null },
+      { id: "chk_b", text: sampleText.slice(150), start: 150, end: sampleText.length, page: null },
+    ];
+    let saved = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const payload = url.includes("/api/v1/models") ? models
+        : url.endsWith("/user-rag/sample-text") ? { name: pastedDocument.name, text: sampleText }
+          : url.endsWith("/user-documents/text/preview") ? { chunks }
+            : url.endsWith("/user-documents/text") && init?.method === "POST" ? (saved = true, { document: pastedDocument })
+              : url.endsWith("/user-documents") ? { documents: saved ? [pastedDocument] : [] }
+                : url.endsWith("/user-documents/doc_pasted/chunks") ? { document: pastedDocument, chunks }
+                  : {};
+      return new Response(JSON.stringify(payload), { status: url.endsWith("/user-documents/text") ? 201 : 200, headers: { "Content-Type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AppProvider><RagPage /></AppProvider>);
+    const loadExample = await screen.findByRole("button", { name: "Načíst a indexovat příklad" });
+    await waitFor(() => expect(loadExample).toBeEnabled());
+    fireEvent.click(loadExample);
+    expect(await screen.findByDisplayValue(pastedDocument.name)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Text dokumentu" })).toHaveValue(sampleText);
+    expect(await screen.findByText("Indexované chunky")).toBeInTheDocument();
+    expect(screen.getByText(/překryv 10/)).toBeInTheDocument();
+    expect(screen.queryByText("Zatím žádný dokument")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/user-documents/text/preview"))).toBe(true);
+    const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/user-documents/text") && init?.method === "POST");
+    expect(createCall).toBeDefined();
+    expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({ name: pastedDocument.name, text: sampleText });
+    expect(screen.getByText(/znaky 150–/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Otázka" }), { target: { value: "What does Atlas Works do?" } });
+    expect(screen.getByRole("button", { name: "Vyhledat a odpovědět" })).toBeEnabled();
   });
 });
 

@@ -33,6 +33,7 @@
 .run em { justify-self: end; font-style: normal; color: var(--ink-soft); }
 .run em[data-status="completed"] { color: var(--green); }
 .run em[data-status="failed"] { color: var(--red); }
+.run > :last-child { justify-self: end; }
 .empty { display: grid; justify-items: start; gap: 8px; padding: 32px; }
 .empty svg { color: var(--blue); }
 .empty h3 { margin: 2px 0 0; font-size: 17px; }

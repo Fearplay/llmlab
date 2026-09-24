@@ -36,12 +36,15 @@ import { useApp } from "./app-provider";
 const primary = [
   { href: "/", key: "overview", icon: Gauge },
   { href: "/arena", key: "arena", icon: Swords },
-  { href: "/history", key: "history", icon: History },
-  { href: "/operations", key: "operations", icon: Wallet },
   { href: "/datasets", key: "datasets", icon: Database },
   { href: "/prompts", key: "prompts", icon: MessageSquareText },
   { href: "/providers", key: "providers", icon: Network },
   { href: "/evaluators", key: "evaluators", icon: SlidersHorizontal },
+];
+
+const checks = [
+  { href: "/history", key: "history", icon: History },
+  { href: "/operations", key: "operations", icon: Wallet },
 ];
 
 const labs = [
@@ -108,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labsOpen, setLabsOpen] = useState(pathname.startsWith("/ai-lab"));
   const [query, setQuery] = useState("");
-  const destinations = [...primary, ...labs, { href: "/reviews", key: "reviews" }, { href: "/settings", key: "settings" }, { href: "/docs", key: "documentation" }];
+  const destinations = [...primary, ...labs, { href: "/reviews", key: "reviews" }, ...checks, { href: "/settings", key: "settings" }, { href: "/docs", key: "documentation" }];
   const searchResults = query.trim() ? destinations.filter((item) => `${t(`nav.${item.key}`)} ${item.href}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
 
   const active = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -146,6 +149,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/reviews" className={`nav-link ${active("/reviews") ? "active" : ""}`} onClick={() => setMobileOpen(false)}>
             <FileText size={18} strokeWidth={1.8} /><span>{t("nav.reviews")}</span>
           </Link>
+          {checks.map(({ href, key, icon: Icon }) => (
+            <Link key={href} href={href} className={`nav-link ${active(href) ? "active" : ""}`} onClick={() => setMobileOpen(false)}>
+              <Icon size={18} strokeWidth={1.8} /><span>{t(`nav.${key}`)}</span>
+            </Link>
+          ))}
         </nav>
 
         <div className="nav-footer">

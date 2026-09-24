@@ -4,7 +4,7 @@ import { ArrowRight, Bird, Database, FlaskConical, RotateCcw, Sparkles, Swords, 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, Notice, PageHeader } from "@/components/ui";
+import { Button, Notice, PageHeader, RunStatus } from "@/components/ui";
 import { errorMessage, fetchJson, formatCost, formatDate, type ExperimentRecord, type OperationsSummary } from "./live-api";
 import styles from "./overview-page.module.css";
 
@@ -56,7 +56,7 @@ export function DashboardPage() {
       <Metric label={cs ? "Odhad ceny API" : "Estimated API cost"} value={formatCost(summary?.estimated_usd ?? 0, locale)} note={(summary?.unknown_calls ?? 0) > 0 ? `${summary?.unknown_calls} ${cs ? "volání bez známé ceny" : "calls with unknown price"}` : (cs ? "z dostupných cen" : "from available rates")} icon={<Wallet size={18} />} />
     </section>
     <section className={styles.history}><div className={styles.sectionHead}><div><span className={styles.kicker}>{cs ? "ZÁZNAMY" : "RECORDS"}</span><h2>{cs ? "Poslední běhy" : "Recent runs"}</h2></div><Link href="/history">{cs ? "Celá historie" : "Full history"}<ArrowRight size={15} /></Link></div>
-      {runs.length ? <div className={styles.runList}>{runs.slice(0, 5).map((run) => <Link href="/history" key={run.id} className={styles.run}><span className={styles.runKind}>{run.kind}</span><strong>{run.name}</strong><span>{run.model}</span><time>{formatDate(run.created_at, locale)}</time><em data-status={run.status}>{run.status}</em></Link>)}</div> : <div className={styles.empty}><FlaskConical size={23} /><h3>{cs ? "Zatím tu není žádný běh" : "No runs yet"}</h3><p>{cs ? "Spusťte první prompt nebo arénu. Tady potom uvidíte skutečné výsledky." : "Run your first prompt or arena comparison to see real results here."}</p><Link href="/ai-lab/prompt-tokens">{cs ? "Začít s promptem" : "Start with a prompt"}<ArrowRight size={15} /></Link></div>}
+      {runs.length ? <div className={styles.runList}>{runs.slice(0, 5).map((run) => <Link href="/history" key={run.id} className={styles.run}><span className={styles.runKind}>{run.kind}</span><strong>{run.name}</strong><span>{run.model}</span><time>{formatDate(run.created_at, locale)}</time><RunStatus status={run.status} /></Link>)}</div> : <div className={styles.empty}><FlaskConical size={23} /><h3>{cs ? "Zatím tu není žádný běh" : "No runs yet"}</h3><p>{cs ? "Spusťte první prompt nebo arénu. Tady potom uvidíte skutečné výsledky." : "Run your first prompt or arena comparison to see real results here."}</p><Link href="/ai-lab/prompt-tokens">{cs ? "Začít s promptem" : "Start with a prompt"}<ArrowRight size={15} /></Link></div>}
     </section>
     <div className={styles.examples}><button type="button" onClick={() => setShowExamples((value) => !value)} aria-expanded={showExamples}>{cs ? "Ukázat nápady na první experiment" : "Show ideas for a first experiment"}<ArrowRight size={14} /></button>{showExamples && <p>{cs ? "Zkuste vysvětlit nové téma dvěma modely, porovnat stejnou otázku při různých hodnotách teploty nebo nahrát vlastní dokument do RAG." : "Try explaining a new topic with two models, comparing one question at different temperatures, or uploading a document to RAG."}</p>}</div>
   </div>;

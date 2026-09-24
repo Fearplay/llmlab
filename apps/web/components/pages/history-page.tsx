@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { PageHeader } from "@/components/ui";
+import { AnswerReveal, PageHeader, RunStatus } from "@/components/ui";
 import { errorMessage, fetchJson, formatCost, formatDate, type EpisodeRecord, type ExperimentRecord, type ExperimentResult } from "./live-api";
 import styles from "./live-pages.module.css";
 
@@ -68,7 +68,7 @@ function RunEntry({ run, locale }: { run: ExperimentRecord; locale: "en" | "cs" 
   const modelKeys = Array.isArray(spec.model_keys) ? spec.model_keys.join(", ") : run.model ?? "—";
   const costs = results.flatMap((item) => [item.cost?.estimated_usd, ...([item.judge, item.order_check].filter((extra) => extra && typeof extra === "object").map((extra) => typeof extra?.cost === "object" && extra.cost && "estimated_usd" in extra.cost ? extra.cost.estimated_usd as number | null : undefined))]);
   const knownCost = costs.length && costs.every((item) => typeof item === "number") ? costs.reduce<number>((sum, item) => sum + (item ?? 0), 0) : run.usage?.cost_usd;
-  return <details className={styles.record}><summary><strong>{run.name || run.kind || (cs ? "Běh" : "Run")}</strong><span className={styles.status} data-status={run.status}>{run.status}</span><small>{formatDate(run.created_at, locale)}</small></summary><div className={styles.recordBody}>
+  return <details className={styles.record}><summary><strong>{run.name || run.kind || (cs ? "Běh" : "Run")}</strong><RunStatus status={run.status} /><small>{formatDate(run.created_at, locale)}</small></summary><div className={styles.recordBody}>
     <dl className={styles.recordDetails}><div><dt>{cs ? "Typ" : "Type"}</dt><dd>{run.kind ?? "prompt"}</dd></div><div><dt>{cs ? "Modely" : "Models"}</dt><dd>{modelKeys}</dd></div><div><dt>{cs ? "Vstupní tokeny" : "Input tokens"}</dt><dd>{run.usage?.input_tokens ?? "—"}</dd></div><div><dt>{cs ? "Výstupní tokeny" : "Output tokens"}</dt><dd>{run.usage?.output_tokens ?? "—"}</dd></div><div><dt>{cs ? "Odhad ceny" : "Cost estimate"}</dt><dd>{formatCost(knownCost, locale)}</dd></div></dl>
     {prompt && <section><h3>{cs ? "Zadání" : "Prompt"}</h3><p>{prompt}</p></section>}
     {system && <section><h3>{cs ? "Systémová instrukce" : "System instruction"}</h3><p>{system}</p></section>}
@@ -81,7 +81,7 @@ function RunEntry({ run, locale }: { run: ExperimentRecord; locale: "en" | "cs" 
 }
 
 function SavedResult({ result, locale }: { result: ExperimentResult; locale: "en" | "cs" }) {
-  return <article className={styles.resultCard}><h3>{result.model_key}</h3><span className={styles.status} data-status={result.status}>{result.status}</span>{result.case_id && <small> {result.case_id}</small>}<p>{result.output ?? result.error ?? "—"}</p><div className={styles.resultMeta}><span>{result.latency_ms ?? "—"} ms</span><span>{result.usage?.input_tokens ?? "—"} / {result.usage?.output_tokens ?? "—"} {locale === "cs" ? "tokenů" : "tokens"}</span><span>{formatCost(result.cost?.estimated_usd, locale)}</span></div>
+  return <article className={styles.resultCard}><h3>{result.model_key}</h3><RunStatus status={result.status} />{result.case_id && <small> {result.case_id}</small>}{result.output ? <AnswerReveal answer={result.output} locale={locale} /> : <p>{result.error ?? "—"}</p>}<div className={styles.resultMeta}><span>{result.latency_ms ?? "—"} ms</span><span>{result.usage?.input_tokens ?? "—"} / {result.usage?.output_tokens ?? "—"} {locale === "cs" ? "tokenů" : "tokens"}</span><span>{formatCost(result.cost?.estimated_usd, locale)}</span></div>
     {result.grade && <p className={styles.inlineNote}>{locale === "cs" ? "Hodnocení" : "Grade"}: {result.grade.method ?? "—"} · {typeof result.grade.score === "number" ? `${Math.round(result.grade.score * 100)}%` : "—"}</p>}
     {result.judge && <p className={styles.inlineNote}>{locale === "cs" ? "Názor AI soudce" : "AI judge opinion"}: {result.judge.opinion ?? "—"}</p>}
     {result.order_check && <p className={styles.inlineNote}>{locale === "cs" ? "Při obráceném pořadí podkladů" : "With evidence order reversed"}: {result.order_check.same_answer ? locale === "cs" ? "stejná odpověď" : "same answer" : locale === "cs" ? "jiná odpověď" : "different answer"}. {result.order_check.reversed_output}</p>}
@@ -91,7 +91,7 @@ function SavedResult({ result, locale }: { result: ExperimentResult; locale: "en
 function EpisodeEntry({ episode, locale, onOpen }: { episode: EpisodeRecord; locale: "en" | "cs"; onOpen: () => void }) {
   const cs = locale === "cs";
   const replay = episode.replay && typeof episode.replay === "object" ? episode.replay as { decisions?: Array<{ index?: number; action?: string; callback_ms?: number; reason?: string }> } : null;
-  return <details className={styles.record} onToggle={(event) => { if (event.currentTarget.open) onOpen(); }}><summary><strong>{episode.model_key ?? episode.agent}</strong><span className={styles.status} data-status={episode.status}>{episode.status}</span><small>{formatDate(episode.created_at, locale)}</small></summary><div className={styles.recordBody}>
+  return <details className={styles.record} onToggle={(event) => { if (event.currentTarget.open) onOpen(); }}><summary><strong>{episode.model_key ?? episode.agent}</strong><RunStatus status={episode.status} /><small>{formatDate(episode.created_at, locale)}</small></summary><div className={styles.recordBody}>
     <dl className={styles.recordDetails}><div><dt>{cs ? "Skóre" : "Score"}</dt><dd>{episode.score ?? "—"}</dd></div><div><dt>Seed</dt><dd>{episode.seed ?? "—"}</dd></div><div><dt>{cs ? "Rozhodnutí" : "Decisions"}</dt><dd>{episode.decision_count ?? "—"}</dd></div><div><dt>{cs ? "Snímky" : "Frames"}</dt><dd>{episode.frames ?? "—"}</dd></div><div><dt>{cs ? "Odhad ceny" : "Cost estimate"}</dt><dd>{formatCost(episode.cost_usd, locale)}</dd></div></dl>
     {episode.death_reason && <p>{cs ? "Konec hry" : "Game ended"}: {episode.death_reason}</p>}{episode.error && <p role="alert">{episode.error}</p>}
     {replay?.decisions?.length ? <section><h3>{cs ? "Rozhodnutí agenta" : "Agent decisions"}</h3><div className={styles.recordDetails}>{replay.decisions.slice(0, 12).map((decision, index) => <div key={index}><dt>#{decision.index ?? index + 1}</dt><dd>{decision.action ?? "—"}{decision.callback_ms ? ` · ${Math.round(decision.callback_ms)} ms` : ""}</dd></div>)}</div>{replay.decisions.length > 12 && <p>{cs ? "Další rozhodnutí najdeš ve Flappy AI." : "See the remaining decisions in Flappy AI."}</p>}</section> : <p>{cs ? "Načítám rozhodnutí a replay…" : "Loading decisions and replay…"}</p>}

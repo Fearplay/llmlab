@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterator
 
 import pytest
@@ -53,6 +54,18 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(user_rag_api, "embed", fake_embed)
     monkeypatch.setattr(user_rag_api, "generate", fake_generate)
     with TestClient(app) as client:
+        sample = client.get("/api/v1/user-rag/sample-text")
+        assert sample.status_code == 200
+        assert len(sample.json()["text"]) > 20_000
+        assert "Atlas Works" in sample.json()["text"]
+        sample_preview = client.post("/api/v1/user-documents/text/preview", json={
+            "name": sample.json()["name"], "text": sample.json()["text"],
+            "embedding_model_key": "ollama:embed:1",
+        })
+        assert sample_preview.status_code == 200, sample_preview.text
+        assert sample_preview.json()["chunks"][0]["start"] == 0
+        assert len(sample_preview.json()["chunks"]) > 10
+
         upload = client.post("/api/v1/user-documents", data={
             "strategy": "paragraph", "chunk_size": "40", "overlap": "0",
             "embedding_model_key": "ollama:embed:1",
@@ -71,12 +84,37 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
         assert body["grounded"] is True
         assert body["citations"][0]["chunk_id"] == chunks[0]["id"]
         assert body["run_id"].startswith("run_")
+
+        pasted = "Refund policy applies to this item. " * 12
+        text_request = {
+            "name": "Pasted policy", "text": pasted, "strategy": "fixed",
+            "chunk_size": 40, "overlap": 10, "embedding_model_key": "ollama:embed:1",
+        }
+        preview = client.post("/api/v1/user-documents/text/preview", json=text_request)
+        assert preview.status_code == 200, preview.text
+        preview_chunks = preview.json()["chunks"]
+        assert len(preview_chunks) > 1
+        assert preview_chunks[1]["start"] < preview_chunks[0]["end"]
+        created = client.post("/api/v1/user-documents/text", json=text_request)
+        assert created.status_code == 201, created.text
+        pasted_document = created.json()["document"]
+        assert pasted_document["source_kind"] == "pasted"
+        assert pasted_document["chunk_count"] == len(preview_chunks)
+        stored_chunks = client.get(
+            f"/api/v1/user-documents/{pasted_document['id']}/chunks"
+        ).json()["chunks"]
+        assert [(item["start"], item["end"], item["text"]) for item in stored_chunks] == [
+            (item["start"], item["end"], item["text"]) for item in preview_chunks
+        ]
+        assert client.post("/api/v1/user-documents/text", json={
+            **text_request, "text": "   "
+        }).status_code == 422
+        assert client.delete(f"/api/v1/user-documents/{pasted_document['id']}").status_code == 204
         assert client.delete(f"/api/v1/user-documents/{document['id']}").status_code == 204
         assert client.get("/api/v1/user-documents").json()["documents"] == []
 
 
-@pytest.mark.asyncio
-async def test_chunk_methods_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chunk_methods_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
     text = "First sentence. Second sentence.\n\nAnother paragraph is here."
 
     async def fake_embeddings(
@@ -88,8 +126,9 @@ async def test_chunk_methods_are_distinct(monkeypatch: pytest.MonkeyPatch) -> No
     settings = Settings()
     lengths = {}
     for strategy in ("fixed", "sentence", "paragraph", "semantic"):
-        chunks = await user_rag_api._chunk_slices(text, strategy, 40, 0, "ollama:embed:1",
-                                                   settings)
+        chunks = asyncio.run(user_rag_api._chunk_slices(
+            text, strategy, 40, 0, "ollama:embed:1", settings
+        ))
         lengths[strategy] = len(chunks)
         assert all(text[item.start:item.end].strip() for item in chunks)
     assert lengths["paragraph"] == 2

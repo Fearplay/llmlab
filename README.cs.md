@@ -27,7 +27,7 @@ Vpravo nahoře vyberte některý z dostupných modelů Ollamy. V části **Promp
 | Prompt a tokeny | Devět výukových úrovní, systémová instrukce, teplota, top-p, limit výstupu, stop sekvence, JSON schéma a odhad využití kontextu. |
 | Aréna modelů | Stejný prompt nad až osmi dostupnými modely, porovnání odpovědí, latence, tokenů a ceny; při referenční odpovědi také objektivní skóre. AI hodnotitel a test pořadí podkladů jsou volitelné. |
 | Datasety a evaluátory | Vlastní otázky v CSV/JSON/JSONL, přesná shoda, částečná shoda slov, test podřetězce a JSON schéma. |
-| RAG | Vlastní PDF, DOCX, TXT a Markdown soubory, čtyři metody dělení, embeddingy, top-k, BM25 a odkazy na přesné úryvky. Citace nejsou automatický důkaz pravdivosti každého tvrzení. |
+| RAG | Vložení vlastního textu, načtení dlouhého syntetického příkladu Atlas Works nebo nahrání PDF, DOCX, TXT a Markdown souboru. Před indexací lze zobrazit přesné hranice a překryv chunků; po uložení jsou vidět skutečně indexované úryvky, embeddingy, top-k, BM25 a citace. Citace nejsou automatický důkaz pravdivosti každého tvrzení. |
 | Agenti a bezpečnost | Simulované soubory, databáze a kalkulačka, omezené kroky, režimy paměti, reflexe a uložená stopa. Bezpečnostní pokusy používají falešný klíč a pouze simulované operace. |
 | Flappy AI | Hra člověka, náhodného, pravidlového a LLM hráče; vlastní DQN s checkpointem. Žebříček podle seedu, rozhodnutí a replay. |
 | Cena a provoz | Grafy běhů a tokenů, modelové součty a odhady z dat poskytovatelů. Neznámá cena zůstane neznámá. |

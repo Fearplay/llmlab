@@ -4,7 +4,7 @@ import { Play } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, HelpLabel, InfoTip, MetricLabel, ModeSelector, Notice, PageHeader, Panel, ProvenanceStrip } from "@/components/ui";
+import { AnswerReveal, Button, HelpLabel, InfoTip, MetricLabel, ModeSelector, Notice, PageHeader, Panel, ProvenanceStrip, RunStatus } from "@/components/ui";
 import type { ExecutionMode } from "@/lib/types";
 
 const example = {
@@ -116,7 +116,7 @@ export function PromptTokensPage() {
       </Panel>
     </div>
     <Panel title={t("labs.output")} helpKey="prompt.output" aside={result?.run_id ? <Link className="inline-link" href="/history">{t("labs.viewInHistory")}</Link> : undefined}>
-      {result ? <div className="output-layout"><pre className="code-output">{result.text}</pre><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{resultSchemaRequested ? schemaValid === null ? t("labs.schemaNotChecked") : schemaValid ? t("common.valid") : t("common.invalid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
+      {result ? <div className="output-layout"><div className="output-answer"><RunStatus status="completed" /><AnswerReveal answer={result.text} locale={locale} initiallyOpen code /></div><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{resultSchemaRequested ? schemaValid === null ? t("labs.schemaNotChecked") : schemaValid ? t("common.valid") : t("common.invalid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
       {result && <p className="prompt-muted">{result.applied_settings ? `${t("labs.appliedSettings")}: ${JSON.stringify(result.applied_settings)}` : t("labs.settingsNotConfirmed")}</p>}
     </Panel>
   </>;

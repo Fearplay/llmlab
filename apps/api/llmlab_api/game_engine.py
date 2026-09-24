@@ -671,7 +671,13 @@ class DQNTrainer:
         self.losses.append(loss)
         return loss
 
-    def train(self, episodes: int, *, max_decisions: int = 200) -> dict[str, Any]:
+    def train(
+        self,
+        episodes: int,
+        *,
+        max_decisions: int = 200,
+        on_progress: Callable[[int], None] | None = None,
+    ) -> dict[str, Any]:
         if episodes <= 0 or max_decisions <= 0:
             raise ValueError("episodes and max_decisions must be positive")
         results = []
@@ -709,6 +715,8 @@ class DQNTrainer:
                 }
             )
             self.episodes += 1
+            if on_progress is not None and (len(results) % 25 == 0 or len(results) == episodes):
+                on_progress(len(results))
         return {
             "episodes": results,
             "total_steps": self.steps,
@@ -740,6 +748,54 @@ class DQNTrainer:
             "episodes": results,
             "mean_score": sum(item["score"] for item in results) / len(results),
             "mean_frames": sum(item["frames"] for item in results) / len(results),
+        }
+
+    def showcase(self, seed: int, *, count: int = 20, max_decisions: int = 200) -> dict[str, Any]:
+        """Play independent held-out courses and return their real trajectories.
+
+        Every bird uses the saved greedy policy. The compact trajectories drive the
+        twenty-bird preview; the winner includes an exact, verifiable game replay.
+        """
+        if count <= 0 or max_decisions <= 0:
+            raise ValueError("count and max_decisions must be positive")
+        attempts: list[dict[str, Any]] = []
+        best_score = -1
+        winner_index = 0
+        winner_replay: dict[str, Any] | None = None
+        for index in range(count):
+            course_seed = (seed + 100_000 + index) % 2_147_483_648
+            engine = FlappyEngine(course_seed, self.config)
+            trace = []
+            for _ in range(max_decisions):
+                observation = engine.observation()
+                result = engine.step(self.action(observation), self.frames_per_decision)
+                next_observation = result["observation"]
+                pipe = next_observation["next_pipe"]
+                trace.append({
+                    "frame": next_observation["frame"],
+                    "y": round(next_observation["bird"]["y"], 1),
+                    "score": next_observation["score"],
+                    "alive": next_observation["alive"],
+                    "pipe_x": round(pipe["x"], 1) if pipe else None,
+                    "gap_top": round(pipe["gap_top"], 1) if pipe else None,
+                    "gap_bottom": round(pipe["gap_bottom"], 1) if pipe else None,
+                })
+                if result["done"]:
+                    break
+            attempts.append({"seed": course_seed, "score": engine.state.score, "steps": trace})
+            if engine.state.score > best_score:
+                best_score = engine.state.score
+                winner_index = index
+                winner_replay = engine.get_replay()
+        assert winner_replay is not None
+        FlappyEngine.from_replay(winner_replay, verify=True)
+        return {
+            "attempts": attempts,
+            "winner_index": winner_index,
+            "best_score": best_score,
+            "target_score": 20,
+            "target_met": best_score >= 20,
+            "replay": winner_replay,
         }
 
     def save_checkpoint(self, path: str | Path) -> None:

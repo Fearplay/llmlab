@@ -3,7 +3,7 @@
 import { Braces, Check, FileText, GitCompareArrows, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, Notice, PageHeader, Panel, Select } from "@/components/ui";
+import { Button, InfoTip, Notice, PageHeader, Panel, Select } from "@/components/ui";
 
 const storageKey = "llmlab.promptVersions";
 
@@ -76,10 +76,10 @@ export function PromptsPage() {
     </div>
     {saved && <div className="success-banner"><Check size={16} />{t("prompts.saved")}</div>}
     <div className="prompt-layout">
-      <Panel title={t("prompts.systemPrompt")} aside={<Select value={version} onChange={changeVersion} ariaLabel={t("prompts.version")}>
+      <Panel title={t("prompts.systemPrompt")} aside={<div className="control-with-help"><Select value={version} onChange={changeVersion} ariaLabel={t("prompts.version")}>
         <option value="">{t("prompts.newPrompt")}</option>
         {customVersions.map((item) => <option key={item.id} value={item.id}>{item.id} · {t("common.active")}</option>)}
-      </Select>}>
+      </Select><InfoTip label={t("prompts.version")} helpKey="field.promptVersion" context="field" /></div>}>
         <textarea className="prompt-editor mono" value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} placeholder={t("prompts.placeholder")} spellCheck={false} />
         <div className="editor-footer"><span>{text.length} {t("common.characters")}</span><span>~{Math.ceil(text.length / 4)} {t("common.estimatedTokens")}</span></div>
       </Panel>

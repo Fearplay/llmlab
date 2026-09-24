@@ -75,7 +75,7 @@ class TournamentCreate(BaseModel):
 
 class TrainCreate(BaseModel):
     seed: int = Field(42, ge=0, le=2_147_483_647)
-    episodes: int = Field(50, ge=2, le=500)
+    episodes: int = Field(1000, ge=2, le=2000)
     max_decisions: int = Field(100, ge=10, le=300)
 
 
@@ -99,6 +99,7 @@ def _checkpoint_path(settings: Settings) -> Path:
 
 
 def _view(row: GameEpisode, *, detail: bool = False) -> dict[str, Any]:
+    decisions = row.replay.get("decisions", []) if row.replay else []
     result = {
         "id": row.id,
         "agent": row.agent,
@@ -109,6 +110,11 @@ def _view(row: GameEpisode, *, detail: bool = False) -> dict[str, Any]:
         "score": row.score,
         "frames": row.frames,
         "decision_count": row.decision_count,
+        "invalid_decisions": sum(
+            bool(item.get("agent_result", {}).get("invalid_output"))
+            for item in decisions
+            if isinstance(item.get("agent_result"), dict)
+        ),
         "input_tokens": row.input_tokens,
         "output_tokens": row.output_tokens,
         "cached_tokens": row.cached_tokens,
@@ -249,9 +255,11 @@ async def _run_episode_task(episode_id: str, settings: Settings) -> None:
                     "bird_y": round(bird["y"], 1),
                     "vertical_speed": round(bird["vy"], 2),
                     "pipe_distance": round(observation["distance_to_next_pipe"], 1),
+                    "gap_center": round(pipe["gap_center"], 1) if pipe else None,
                     "gap_top": round(pipe["gap_top"], 1) if pipe else None,
                     "gap_bottom": round(pipe["gap_bottom"], 1) if pipe else None,
                     "floor_y": observation["floor_y"],
+                    "frames_until_next_decision": spec.frames_per_decision,
                 }
                 result = await generate(
                     GenerationRequest(
@@ -263,15 +271,27 @@ async def _run_episode_task(episode_id: str, settings: Settings) -> None:
                                 "role": "system",
                                 "content": (
                                     'You control Flappy Bird. Return only JSON: {"action":"FLAP"} '
-                                    'or {"action":"WAIT"}. FLAP adds upward velocity; WAIT does '
-                                    "nothing. Decide from the state."
+                                    'or {"action":"WAIT"}. Coordinates increase downward. '
+                                    'FLAP sets vertical speed to -6.6 for the first frame; WAIT '
+                                    'keeps the current speed. Gravity adds 0.38 speed every frame. '
+                                    'The chosen action is followed by the stated number of frames '
+                                    'before you can act again. Keep the bird in the next pipe gap. '
+                                    'Estimate its height at the next decision and flap before it '
+                                    'falls below the gap center. Avoid flaps near the ceiling. '
+                                    'Bird radius is 14 pixels.'
                                 ),
                             },
                             {"role": "user", "content": json.dumps(state, separators=(",", ":"))},
                         ],
                         temperature=0,
                         top_p=1,
-                        max_tokens=40,
+                        # Reasoning models may spend the whole tiny budget before
+                        # producing JSON; this used to turn every empty reply into WAIT.
+                        max_tokens=(
+                            512 if provider == "openai" and model.startswith(
+                                ("gpt-5", "gpt-6", "o1", "o3", "o4")
+                            ) else 96
+                        ),
                     ),
                     settings,
                 )
@@ -483,13 +503,30 @@ async def _train_task(training_id: str, settings: Settings) -> None:
             )
             if trainer.seed != seed:
                 trainer = DQNTrainer(seed=seed)
-            result = await asyncio.to_thread(trainer.train, count, max_decisions=max_decisions)
+            evaluation_seeds = [seed + 100_000 + i for i in range(20)]
+            before = await asyncio.to_thread(
+                trainer.evaluate, evaluation_seeds, max_decisions=max_decisions
+            )
+
+            def report_progress(completed: int) -> None:
+                with SessionLocal() as progress_db:
+                    progress_row = progress_db.get(GameTraining, training_id)
+                    if progress_row is not None:
+                        progress_row.episodes_completed = completed
+                        progress_db.commit()
+
+            result = await asyncio.to_thread(
+                trainer.train,
+                count,
+                max_decisions=max_decisions,
+                on_progress=report_progress,
+            )
             temporary = checkpoint.with_name(checkpoint.name + ".tmp")
             await asyncio.to_thread(trainer.save_checkpoint, temporary)
             temporary.replace(checkpoint)
             evaluation = await asyncio.to_thread(
                 trainer.evaluate,
-                [seed + 100_000 + i for i in range(3)],
+                evaluation_seeds,
                 max_decisions=max_decisions,
             )
             with SessionLocal() as db:
@@ -499,6 +536,7 @@ async def _train_task(training_id: str, settings: Settings) -> None:
                 row.episodes_completed = count
                 row.result = {
                     "training": result,
+                    "evaluation_before": before,
                     "evaluation": evaluation,
                     "checkpoint": str(checkpoint),
                 }
@@ -512,11 +550,7 @@ async def _train_task(training_id: str, settings: Settings) -> None:
                     db.commit()
 
 
-@router.get("/train/{training_id}")
-def training_status(training_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    row = db.get(GameTraining, training_id)
-    if row is None:
-        raise HTTPException(404, "Trénink nebyl nalezen.")
+def _training_view(row: GameTraining) -> dict[str, Any]:
     return {
         "id": row.id,
         "status": row.status,
@@ -526,6 +560,20 @@ def training_status(training_id: str, db: Session = Depends(get_db)) -> dict[str
         "result": row.result,
         "error": row.error,
     }
+
+
+@router.get("/train/latest")
+def latest_training(db: Session = Depends(get_db)) -> dict[str, Any] | None:
+    row = db.scalar(select(GameTraining).order_by(GameTraining.created_at.desc()).limit(1))
+    return _training_view(row) if row is not None else None
+
+
+@router.get("/train/{training_id}")
+def training_status(training_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    row = db.get(GameTraining, training_id)
+    if row is None:
+        raise HTTPException(404, "Trénink nebyl nalezen.")
+    return _training_view(row)
 
 
 @router.get("/checkpoint")
@@ -540,3 +588,19 @@ def checkpoint_status(settings: Settings = Depends(get_settings)) -> dict[str, A
         "steps": trainer.steps,
         "seed": trainer.seed,
     }
+
+
+@router.get("/showcase")
+def showcase_dqn(
+    seed: int = 42,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    if seed < 0 or seed > 2_147_483_647:
+        raise HTTPException(422, "Seed musí být mezi 0 a 2147483647.")
+    path = _checkpoint_path(settings)
+    if not path.exists():
+        raise HTTPException(409, "Nejprve natrénujte DQN a uložte checkpoint.")
+    trainer = DQNTrainer.load_checkpoint(path)
+    result = trainer.showcase(seed, count=20, max_decisions=200)
+    result["checkpoint_episodes"] = trainer.episodes
+    return result
