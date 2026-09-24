@@ -4,6 +4,18 @@ Lokální laboratoř pro pochopení a porovnávání jazykových modelů. Píše
 
 [English](README.md)
 
+## Náhled aplikace
+
+Snímky vznikly v čistém profilu prohlížeče s ukázkovým katalogem lokálních modelů a prázdnými seznamy běhů i dokumentů. Neobsahují osobní běhy ani přístupové údaje.
+
+**Přehled:** vstup do laboratoří, uložené běhy, spotřeba tokenů a odhad ceny API.
+
+![Český přehled LLMLab s prázdnou historií běhů](docs/screenshots/overview-cs.png)
+
+**RAG pipeline:** příprava dokumentu, nastavení dělení a modelů, odpověď vedle nalezených podkladů.
+
+![Česká RAG pipeline LLMLab bez nahraných dokumentů](docs/screenshots/rag-cs.png)
+
 ## Spuštění bez Dockeru
 
 Potřebujete **Python 3.12+**, **Node.js 22+**, `pnpm`, `uv` a spuštěnou [Ollamu](https://ollama.com/). Ollama je samostatný server. LLMLab ji nespouští a nestahuje modely automaticky.

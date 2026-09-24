@@ -4,6 +4,18 @@ A local workbench for learning how language models behave, comparing real respon
 
 [Česká verze](README.cs.md)
 
+## Preview
+
+These screenshots use a clean browser profile, an illustrative local model catalog, and empty run and document lists. They contain no personal runs or credentials.
+
+**Overview:** start a lab and inspect saved runs, token usage, and estimated API cost.
+
+![LLMLab overview in English with an empty run history](docs/screenshots/overview-en.png)
+
+**RAG pipeline:** prepare a document, choose chunking and models, then inspect the answer beside its evidence.
+
+![LLMLab RAG pipeline in English with no uploaded documents](docs/screenshots/rag-en.png)
+
 ## Start locally
 
 Install Python 3.12+, Node.js 22+, `pnpm`, `uv`, and [Ollama](https://ollama.com/). Ollama runs separately; LLMLab discovers the models you have installed.
