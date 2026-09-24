@@ -380,9 +380,9 @@ def list_document_chunks(document_id: str, db: Session = Depends(get_db)) -> dic
     document = db.get(UserDocument, document_id)
     if document is None:
         raise HTTPException(404, "Document not found")
-    rows = db.scalars(select(EmbeddingChunk).where(
+    rows = list(db.scalars(select(EmbeddingChunk).where(
         EmbeddingChunk.collection == f"user:{document_id}"
-    )).all()
+    )).all())
     rows.sort(key=lambda row: (row.metadata_json["start"], row.metadata_json["end"]))
     return {"document": _document_view(document), "chunks": [
         {"id": row.id, "text": row.content, **row.metadata_json} for row in rows

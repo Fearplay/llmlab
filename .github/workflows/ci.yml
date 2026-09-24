@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/generate-node-notices.mjs --output /tmp/THIRD_PARTY_NODE_NOTICES.txt
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Upload Playwright failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.13
+      - run: uv sync --project apps/api --extra dev --locked
+      - run: uv run --project apps/api --extra dev python apps/api/scripts/generate_notices.py --output /tmp/THIRD_PARTY_PYTHON_NOTICES.txt
+      - run: uv run --project apps/api --extra dev ruff check apps/api
+      - run: uv run --project apps/api --extra dev mypy apps/api/llmlab_api
+      - run: uv run --project apps/api --extra dev pytest -q apps/api/tests

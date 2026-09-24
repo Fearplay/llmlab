@@ -182,6 +182,8 @@ class RagService:
                         {"role": "user", "content": f"{context}\n\nQuestion: {request.question}"},
                     ],
                     temperature=0.1,
+                    top_p=0.9,
+                    max_tokens=512,
                 ),
                 self.settings,
             )

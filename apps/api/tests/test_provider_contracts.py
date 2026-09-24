@@ -120,7 +120,10 @@ async def test_ollama_native_embeddings() -> None:
     assert result.usage.input_tokens == 3
 
 
-def test_capability_matrix_does_not_invent_anthropic_embeddings() -> None:
+def test_capability_matrix_does_not_invent_anthropic_embeddings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("llmlab_api.secret_settings._keyring", lambda: None)
     records = {record.id: record for record in provider_views(Settings(openai_api_key=""))}
     assert records["anthropic"].capabilities.embeddings is False
     assert records["openai"].configured is False

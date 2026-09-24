@@ -67,7 +67,10 @@ def test_dqn_showcase_replays_twenty_real_courses() -> None:
     assert showcase["winner_index"] == scores.index(max(scores))
     assert showcase["target_met"] is True
     assert showcase["best_score"] >= 20
-    assert FlappyEngine.from_replay(showcase["replay"], verify=True).state.score == showcase["best_score"]
+    assert (
+        FlappyEngine.from_replay(showcase["replay"], verify=True).state.score
+        == showcase["best_score"]
+    )
     assert all(attempt["steps"] for attempt in showcase["attempts"])
 
 

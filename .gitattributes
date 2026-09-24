@@ -10,3 +10,6 @@
 *.gif binary
 *.ico binary
 *.zip binary
+
+# Generated bundles preserve upstream license text, including its whitespace.
+THIRD_PARTY_*_NOTICES.txt -diff

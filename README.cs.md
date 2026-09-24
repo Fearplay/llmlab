@@ -20,17 +20,31 @@ Otevřete **http://127.0.0.1:3000**. API dokumentace je na **http://127.0.0.1:80
 
 Vpravo nahoře vyberte některý z dostupných modelů Ollamy. V části **Prompt a tokeny** napište vlastní dotaz a klikněte na **Spustit**. Model, vstup, nastavení, odpověď, čas a nahlášené tokeny najdete v **Historii běhů**.
 
-## Co lze zkoušet
+## Sekce aplikace
 
-| Část | Co dělá |
-| --- | --- |
-| Prompt a tokeny | Devět výukových úrovní, systémová instrukce, teplota, top-p, limit výstupu, stop sekvence, JSON schéma a odhad využití kontextu. |
-| Aréna modelů | Stejný prompt nad až osmi dostupnými modely, porovnání odpovědí, latence, tokenů a ceny; při referenční odpovědi také objektivní skóre. AI hodnotitel a test pořadí podkladů jsou volitelné. |
-| Datasety a evaluátory | Vlastní otázky v CSV/JSON/JSONL, přesná shoda, částečná shoda slov, test podřetězce a JSON schéma. |
-| RAG | Vložení vlastního textu, načtení dlouhého syntetického příkladu Atlas Works nebo nahrání PDF, DOCX, TXT a Markdown souboru. Před indexací lze zobrazit přesné hranice a překryv chunků; po uložení jsou vidět skutečně indexované úryvky, embeddingy, top-k, BM25 a citace. Citace nejsou automatický důkaz pravdivosti každého tvrzení. |
-| Agenti a bezpečnost | Simulované soubory, databáze a kalkulačka, omezené kroky, režimy paměti, reflexe a uložená stopa. Bezpečnostní pokusy používají falešný klíč a pouze simulované operace. |
-| Flappy AI | Hra člověka, náhodného, pravidlového a LLM hráče; vlastní DQN s checkpointem. Žebříček podle seedu, rozhodnutí a replay. |
-| Cena a provoz | Grafy běhů a tokenů, modelové součty a odhady z dat poskytovatelů. Neznámá cena zůstane neznámá. |
+V postranním menu jsou položky v tomto pořadí. **AI laboratoř** je rozbalovací skupina; **Nastavení** a **Dokumentace** jsou v patičce menu.
+
+| Sekce | Adresa | Co v ní najdete |
+| --- | --- | --- |
+| Přehled | `/` | Vstup do promptu, arény, RAG a Flappy AI; počty skutečných běhů, tokeny, odhad ceny a poslední uložené běhy. |
+| Aréna modelů | `/arena` | Jeden prompt nebo dataset nad několika dostupnými modely; srovnání odpovědí, času, tokenů a odhadované ceny. |
+| Datasety | `/datasets` | Ruční tvorba i import případů z CSV, JSON a JSONL, volba kontrol a spuštění vyhodnocení. |
+| Prompty | `/prompts` | Ukládání verzí promptů a prohlížení rozdílů mezi nimi. |
+| Poskytovatelé | `/providers` | Přehled dostupnosti generativních a embeddingových poskytovatelů a test připojení. |
+| Evaluátory | `/evaluators` | Vysvětlení metod skórování a poslední evaluace skutečných odpovědí. |
+| AI laboratoř → Prompt a tokeny | `/ai-lab/prompt-tokens` | Spouštění promptů se systémovou instrukcí, teplotou, top-p, limitem výstupu, stop sekvencí a podporovaným JSON schématem; odhad i skutečná spotřeba tokenů. |
+| AI laboratoř → Embeddingy | `/ai-lab/embeddings` | Převod dvou textů dostupným embeddingovým modelem na vektory a porovnání kosinové podobnosti. |
+| AI laboratoř → RAG pipeline | `/ai-lab/rag` | Vložení textu nebo PDF, DOCX, TXT a Markdown souboru; kontrola chunků, indexace, nalezených úryvků, odpovědi a citací. Samotná citace nedokazuje správnost tvrzení. |
+| AI laboratoř → Bezpečnost a injection | `/ai-lab/safety` | Pokusy s přímým i dokumentovým podvrženým pokynem, falešným klíčem a simulovanými operacemi; srovnání původní a filtrované odpovědi. |
+| AI laboratoř → Agenti | `/ai-lab/agents` | Úkol pro agenta s omezenými simulovanými soubory, databází a kalkulačkou; viditelná stopa kroků a cena. |
+| AI laboratoř → Flappy AI | `/ai-lab/flappy` | Vlastní hra i náhodný, pravidlový, LLM a trénovaný DQN agent na tratích se seedem; žebříček, checkpointy, rozhodnutí a replay. |
+| Kontroly | `/reviews` | Ruční označení uložených odpovědí jako použitelných či nepoužitelných a uložení poznámky k běhu. |
+| Historie běhů | `/history` | Uložené běhy, podrobné výsledky a vstup do jejich porovnání. |
+| Cena a provoz | `/operations` | Běhy po dnech, tokeny podle modelů, stav poskytovatelů, ceník a známé odhady ceny API. Neznámá cena zůstává neznámá. |
+| Nastavení | `/settings` | Místní preference a správa připojení poskytovatelů. |
+| Dokumentace | `/docs` | Devět krátkých lekcí s odkazy do interaktivních laboratoří. |
+
+Porovnání běhů má vlastní adresu `/experiments/compare`. Starší adresy `/experiments`, `/knowledge-base`, `/ai-lab/grounding` a `/ai-lab/training` přesměrovávají do současných sekcí.
 
 ## Cloudové modely
 
@@ -44,7 +58,16 @@ Odhady cen používají pouze ověřené běžné textové API sazby. Může se 
 pnpm --dir apps/web lint
 pnpm --dir apps/web typecheck
 pnpm --dir apps/web test
+pnpm build
+pnpm --dir apps/web exec playwright install chromium
+pnpm test:e2e
 uv run --project apps/api --extra dev pytest -q apps/api/tests
 ```
 
+[CI](.github/workflows/ci.yml) při každém pushi a pull requestu spouští lint, kontrolu typů, unit testy, produkční build, Playwright na desktopu, tabletu a mobilu a backendové testy. Test navigace hlídá skupiny, pořadí, názvy, aktivní sekci a dostupnost každé odkazované stránky. Playwright v CI používá produkční build.
+
 Frontend je Next.js 16/React 19, backend FastAPI/SQLAlchemy. Lokální spuštění používá SQLite; Docker Compose zůstává k dispozici pro PostgreSQL a Redis. `start.py` dává při spuštění přednost místní SQLite databázi, i když `.env` obsahuje Docker adresy. Uživatelské dokumenty, epizody a běhy se automaticky nenačítají z jiného projektu.
+
+## Licence
+
+Vlastní kód LLMLab je pod [licencí MIT](LICENSE). Knihovny třetích stran a fonty IBM Plex mají vlastní podmínky; jejich přehled je v [oznámeních o cizích knihovnách](THIRD_PARTY_NOTICES.md) a úplné texty v souborech pro [web](THIRD_PARTY_NODE_NOTICES.txt) a [API](THIRD_PARTY_PYTHON_NOTICES.txt). Docker image vytváří oznámení z balíčků pro svou konkrétní platformu.

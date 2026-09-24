@@ -1,18 +1,22 @@
 import { defineConfig } from "@playwright/test";
 
+const port = 3100;
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  workers: process.env.CI ? 2 : undefined,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "pnpm dev",
-    url: "http://127.0.0.1:3000",
+    command: process.env.CI ? `pnpm exec next start -p ${port}` : `pnpm exec next dev -p ${port}`,
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
