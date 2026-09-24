@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from .contracts import ExecutionMode, GenerationRequest
 from .database import SessionLocal, get_db
+from .game_models import GameEpisode
 from .models import Dataset, Run
 from .pricing import estimate_usage_cost
 from .providers import generate
@@ -141,6 +142,9 @@ def list_experiments(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
 @router.get("/operations/summary")
 def operations_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
     rows = list(db.scalars(select(Run).order_by(Run.created_at.desc()).limit(10000)))
+    episodes = list(
+        db.scalars(select(GameEpisode).order_by(GameEpisode.created_at.desc()).limit(10000))
+    )
     by_model: dict[str, dict[str, Any]] = {}
     by_day: dict[str, dict[str, Any]] = {}
     priced = 0
@@ -193,8 +197,40 @@ def operations_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
                     total += float(amount)
                     model_row["estimated_usd"] += float(amount)
                     day_row["estimated_usd"] += float(amount)
+    for episode in episodes:
+        day = episode.created_at.date().isoformat()
+        day_row = by_day.setdefault(day, {"date": day, "runs": 0, "estimated_usd": 0.0})
+        day_row["runs"] += 1
+        if not episode.model_key:
+            continue
+        model_row = by_model.setdefault(
+            episode.model_key,
+            {
+                "model_key": episode.model_key,
+                "calls": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "estimated_usd": 0.0,
+                "unknown_calls": 0,
+            },
+        )
+        calls = episode.decision_count
+        model_row["calls"] += calls
+        model_row["input_tokens"] += episode.input_tokens
+        model_row["output_tokens"] += episode.output_tokens
+        input_tokens += episode.input_tokens
+        output_tokens += episode.output_tokens
+        if episode.cost_usd is None:
+            unknown += calls
+            model_row["unknown_calls"] += calls
+        else:
+            priced += calls
+            total += episode.cost_usd
+            model_row["estimated_usd"] += episode.cost_usd
+            day_row["estimated_usd"] += episode.cost_usd
     return {
-        "runs": len(rows),
+        "runs": len(rows) + len(episodes),
+        "game_episodes": len(episodes),
         "priced_calls": priced,
         "unknown_calls": unknown,
         "estimated_usd": round(total, 8),
@@ -531,9 +567,7 @@ def _grade(answer: str, case: dict[str, Any]) -> dict[str, Any] | None:
         actual_tokens = Counter(re.findall(r"\w+", answer.casefold()))
         expected_tokens = Counter(re.findall(r"\w+", expected.casefold()))
         shared = sum((actual_tokens & expected_tokens).values())
-        precision = shared / sum(actual_tokens.values()) if actual_tokens else 0
-        recall = shared / sum(expected_tokens.values()) if expected_tokens else 0
-        score = 2 * precision * recall / (precision + recall) if precision + recall else 0
+        score = shared / sum(expected_tokens.values()) if expected_tokens else 0
     return {
         "method": evaluator,
         "score": round(score, 4),

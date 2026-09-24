@@ -479,6 +479,8 @@ async def run_episode(
             response = await response
         callback_ms = (time.perf_counter() - started) * 1000
         action = response.get("action") if isinstance(response, Mapping) else response
+        if not isinstance(action, str):
+            raise ValueError("Agent action must be FLAP or WAIT")
         step_started = time.perf_counter()
         result = engine.step(action, frames_per_decision)
         step_ms = (time.perf_counter() - step_started) * 1000
@@ -561,7 +563,7 @@ class _QNetwork:
         derivatives = np.where(absolute <= 1, errors, np.sign(errors)) / len(actions)
         d_q = np.zeros_like(q_values)
         d_q[np.arange(len(actions)), actions] = derivatives
-        gradients = [None] * 6
+        gradients: list[Any] = [None] * 6
         gradients[4] = h2.T @ d_q
         gradients[5] = d_q.sum(axis=0)
         d_h2 = (d_q @ w3.T) * (z2 > 0)

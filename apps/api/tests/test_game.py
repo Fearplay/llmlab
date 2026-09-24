@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from llmlab_api import game_api
+from llmlab_api import game_api, lab_api
 from llmlab_api.database import get_db
 from llmlab_api.game_engine import DQNTrainer, FlappyEngine, RandomAgent
 from llmlab_api.models import Base
@@ -60,6 +60,7 @@ def test_human_game_and_rule_agent_are_saved(monkeypatch) -> None:
 
     app = FastAPI()
     app.include_router(game_api.router)
+    app.include_router(lab_api.router)
     app.dependency_overrides[get_db] = db_session
     with TestClient(app) as client:
         human = client.post("/api/v1/game/human", json={"seed": 42})
@@ -94,3 +95,6 @@ def test_human_game_and_rule_agent_are_saved(monkeypatch) -> None:
         assert saved["cost_usd"] == 0
         board = client.get("/api/v1/game/leaderboard?seed=42").json()
         assert {item["agent"] for item in board["rows"]} == {"human", "rule"}
+        operations = client.get("/api/v1/operations/summary").json()
+        assert operations["game_episodes"] == 2
+        assert operations["runs"] == 2

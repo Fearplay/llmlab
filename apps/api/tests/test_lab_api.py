@@ -14,6 +14,10 @@ from llmlab_api.main import app  # noqa: E402
 
 def test_scoring_requires_reference_and_validates_schema() -> None:
     assert lab_api._grade("anything", {"evaluator": "partial_match"}) is None
+    assert lab_api._grade(
+        "Jedna hodina má 60 minut.",
+        {"expected": "60 minut", "evaluator": "partial_match"},
+    )["passed"]
     assert lab_api._grade("Blue car", {"expected": "blue car", "evaluator": "exact_match"})[
         "passed"
     ]

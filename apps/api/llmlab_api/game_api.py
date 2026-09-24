@@ -5,6 +5,7 @@ import json
 import re
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -184,8 +185,8 @@ def create_tournament(
 ) -> dict[str, Any]:
     if not request.model_keys and not request.include_baselines:
         raise HTTPException(422, "Vyberte alespoň jeden model nebo programového agenta.")
-    for key in request.model_keys:
-        _model_parts(key)
+    for candidate in request.model_keys:
+        _model_parts(candidate)
     if len(set(request.model_keys)) != len(request.model_keys) or len(set(request.seeds)) != len(
         request.seeds
     ):
@@ -194,10 +195,12 @@ def create_tournament(
         raise HTTPException(422, "Seed musí být mezi 0 a 2147483647.")
     episodes = []
     for seed in request.seeds:
-        agents = (["random", "rule"] if request.include_baselines else []) + ["llm"] * len(
-            request.model_keys
-        )
+        agents: list[Literal["random", "rule", "llm", "dqn"]] = []
+        if request.include_baselines:
+            agents.extend(["random", "rule"])
+        agents.extend(["llm"] * len(request.model_keys))
         for index, agent in enumerate(agents):
+            key: str | None
             key = (
                 request.model_keys[index - (2 if request.include_baselines else 0)]
                 if agent == "llm"
@@ -206,7 +209,8 @@ def create_tournament(
             row = _create_episode(
                 db,
                 EpisodeCreate(
-                    agent=agent, model_key=key, seed=seed, max_decisions=request.max_decisions
+                    agent=agent, model_key=key, seed=seed,
+                    frames_per_decision=12, max_decisions=request.max_decisions,
                 ),
             )
             episodes.append(row.id)
@@ -228,6 +232,7 @@ async def _run_episode_task(episode_id: str, settings: Settings) -> None:
         agent = row.agent
         model_key = row.model_key
     try:
+        callback: Callable[[dict[str, Any]], Any]
         if agent == "random":
             callback = RandomAgent(spec.seed)
         elif agent == "rule":
@@ -301,7 +306,7 @@ async def _run_episode_task(episode_id: str, settings: Settings) -> None:
             output_tokens += int(usage.get("output_tokens", 0))
             cached_tokens += int(usage.get("cached_tokens", 0))
         latency_ms = sum(float(item.get("callback_ms", 0)) for item in result["decisions"])
-        cost = 0.0
+        cost: float | None = 0.0
         if agent == "llm":
             cost = estimate_cost(provider, model, input_tokens, output_tokens, cached_tokens)
         with SessionLocal() as db:
@@ -398,7 +403,7 @@ def leaderboard(seed: int | None = None, db: Session = Depends(get_db)) -> dict[
     for row in rows:
         key = row.model_key or row.agent
         groups[key].append(row)
-    ranked = []
+    ranked: list[dict[str, Any]] = []
     for key, episodes in groups.items():
         scores = [item.score for item in episodes]
         ranked.append(

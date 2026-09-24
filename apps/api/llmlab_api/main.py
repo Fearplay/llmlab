@@ -13,7 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
-from . import game_api, lab_api, model_catalog, pricing, secret_settings, user_rag_api
+from . import agent_api, game_api, lab_api, model_catalog, pricing, secret_settings, user_rag_api
 from .contracts import (
     EmbeddingRequest,
     EmbeddingResult,
@@ -47,6 +47,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_tables()
     lab_api.resume_pending()
     game_api.reconcile_interrupted_games()
+    agent_api.reconcile_interrupted_agent_runs()
     yield
 
 
@@ -64,6 +65,7 @@ app.include_router(secret_settings.router)
 app.include_router(lab_api.router)
 app.include_router(game_api.router)
 app.include_router(user_rag_api.router)
+app.include_router(agent_api.router)
 
 
 @app.get("/health/live", tags=["health"])
@@ -293,16 +295,37 @@ def run_events(run_id: str, db: Session = Depends(get_db)) -> EventSourceRespons
 def create_review(payload: dict[str, str], db: Session = Depends(get_db)) -> dict[str, Any]:
     if payload.get("verdict") not in {"good", "bad"}:
         raise HTTPException(422, "verdict must be good or bad")
+    run_id = payload.get("run_id", "")
+    case_id = payload.get("case_id", "")
+    run = db.get(Run, run_id)
+    if run is None or not case_id.isdecimal() or int(case_id) >= len(run.results or []):
+        raise HTTPException(404, "Saved run result not found")
     row = HumanReview(
         id=f"review_{uuid.uuid4().hex[:10]}",
-        run_id=payload.get("run_id", "run_0191"),
-        case_id=payload.get("case_id", ""),
+        run_id=run_id,
+        case_id=case_id,
         verdict=payload["verdict"],
         comment=payload.get("comment", ""),
     )
     db.add(row)
     db.commit()
     return {"id": row.id, "created_at": row.created_at, "saved": True}
+
+
+@app.get("/api/v1/reviews", tags=["reviews"])
+def list_reviews(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    rows = db.scalars(select(HumanReview).order_by(HumanReview.created_at.desc()).limit(500))
+    return [
+        {
+            "id": row.id,
+            "run_id": row.run_id,
+            "case_id": row.case_id,
+            "verdict": row.verdict,
+            "comment": row.comment,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
 
 
 def _get_run(db: Session, run_id: str) -> Run:
