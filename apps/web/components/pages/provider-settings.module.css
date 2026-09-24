@@ -1,0 +1,56 @@
+.layout { display: grid; gap: 18px; }
+.providerGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.providerCard, .panel { min-width: 0; border: 1px solid var(--line); background: var(--paper); }
+.providerCard { display: flex; flex-direction: column; padding: 18px; }
+.providerHeading { display: flex; align-items: flex-start; gap: 11px; }
+.providerIcon { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); background: var(--blue-soft); color: var(--blue); }
+.providerHeading > div { flex: 1; min-width: 0; }
+.providerHeading h2, .panelHeading h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.providerHeading small { color: var(--ink-soft); font-size: 11px; }
+.status { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid var(--line); background: var(--surface-muted); color: var(--ink-soft); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.status[data-state="connected"] { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.status[data-state="unreachable"] { border-color: var(--orange); background: var(--orange-soft); color: var(--orange); }
+.providerMetrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 17px 0 13px; }
+.providerMetrics > div { padding: 11px; border: 1px solid var(--line-soft); background: var(--paper-strong); }
+.providerMetrics strong { display: block; font: 600 23px "IBM Plex Mono", monospace; }
+.providerMetrics span { color: var(--ink-soft); font-size: 11px; }
+.modelChips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 13px; }
+.modelChips span { max-width: 100%; overflow: hidden; padding: 5px 7px; border: 1px solid var(--line); background: var(--paper-strong); font: 10px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.providerHint { flex: 1; margin: 1px 0 13px; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
+.detail { overflow-wrap: anywhere; margin: 0 0 12px; color: var(--orange); font-size: 11px; }
+.textLink { margin-top: auto; color: var(--blue); font-size: 12px; font-weight: 600; }
+.textLink:hover { text-decoration: underline; }
+.footnote, .helpText { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
+.info, .error, .success, .message { margin: 0; padding: 12px 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.error { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+.success { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+.secondaryButton, .primaryButton { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--line); background: var(--paper-strong); color: var(--ink); font-size: 12px; font-weight: 600; }
+.primaryButton { border-color: var(--blue); background: var(--blue); color: white; }
+.secondaryButton:disabled, .primaryButton:disabled { opacity: .5; cursor: not-allowed; }
+.panelHeading { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line-soft); }
+.panelHeading > div { flex: 1; }
+.panelHeading > svg { color: var(--blue); }
+.panelHeading p { max-width: 70ch; margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.iconButton { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid var(--line); background: var(--paper-strong); }
+.secretList { display: grid; }
+.secretRow { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(0, 1.5fr); align-items: center; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--line-soft); }
+.secretRow:last-child { border-bottom: 0; }
+.secretName { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.secretName strong { font-size: 13px; }
+.secretName small { width: 100%; color: var(--ink-soft); font-size: 11px; }
+.secretControls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.secretInput { display: grid; flex: 1 1 220px; gap: 6px; color: var(--ink-soft); font-size: 11px; }
+.secretInput input, .field input { width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid var(--line); background: var(--paper-strong); color: var(--ink); font-size: 13px; }
+.panel > .helpText, .panel > .error, .panel > .success, .panel > .message { margin: 14px 18px; }
+.settingsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.settingBody { display: grid; gap: 15px; padding: 18px; }
+.field { display: grid; gap: 6px; color: var(--ink-soft); font-size: 12px; }
+.settingLine { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.settingLine:last-child { border-bottom: 0; }
+.settingLine input[type="checkbox"] { accent-color: var(--blue); }
+.segmented { display: inline-flex; padding: 2px; border: 1px solid var(--line); background: var(--surface-muted); }
+.segmented button { padding: 6px 8px; border: 0; background: transparent; color: var(--ink-soft); font-size: 11px; }
+.segmented button[aria-pressed="true"] { background: var(--paper-strong); color: var(--ink); font-weight: 600; }
+
+@media (max-width: 900px) { .settingsGrid { grid-template-columns: 1fr; } .secretRow { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .providerGrid { grid-template-columns: 1fr; } .providerHeading { flex-wrap: wrap; } .providerHeading .status { margin-left: 49px; } .secretControls { align-items: stretch; } .secretInput { flex-basis: 100%; } .settingLine { align-items: flex-start; flex-direction: column; } }

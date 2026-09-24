@@ -1,0 +1,100 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { useApp } from "@/components/app-provider";
+import { PageHeader } from "@/components/ui";
+import { errorMessage, fetchJson, formatCost, formatDate, type EpisodeRecord, type ExperimentRecord, type ExperimentResult } from "./live-api";
+import styles from "./live-pages.module.css";
+
+export function HistoryPage() {
+  const { locale } = useApp();
+  const cs = locale === "cs";
+  const [tab, setTab] = useState<"runs" | "episodes">("runs");
+  const [runs, setRuns] = useState<ExperimentRecord[]>([]);
+  const [episodes, setEpisodes] = useState<EpisodeRecord[]>([]);
+  const [episodeDetails, setEpisodeDetails] = useState<Record<string, EpisodeRecord>>({});
+  const [loading, setLoading] = useState(true);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [episodesError, setEpisodesError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const [runResult, episodeResult] = await Promise.allSettled([
+      fetchJson<ExperimentRecord[] | { runs: ExperimentRecord[] }>("/api/v1/experiments"),
+      fetchJson<{ episodes: EpisodeRecord[] } | EpisodeRecord[]>("/api/v1/game/episodes"),
+    ]);
+    if (runResult.status === "fulfilled") { setRuns(Array.isArray(runResult.value) ? runResult.value : runResult.value.runs ?? []); setRunsError(null); }
+    else setRunsError(errorMessage(runResult.reason, locale));
+    if (episodeResult.status === "fulfilled") { setEpisodes(Array.isArray(episodeResult.value) ? episodeResult.value : episodeResult.value.episodes ?? []); setEpisodesError(null); }
+    else setEpisodesError(errorMessage(episodeResult.reason, locale));
+    setLoading(false);
+  }, [locale]);
+
+  useEffect(() => { queueMicrotask(() => void refresh()); }, [refresh]);
+  const loadEpisode = async (id: string) => {
+    if (episodeDetails[id]) return;
+    try {
+      const detail = await fetchJson<EpisodeRecord>(`/api/v1/game/episodes/${encodeURIComponent(id)}`);
+      setEpisodeDetails((current) => ({ ...current, [id]: detail }));
+    } catch (caught) { setEpisodesError(errorMessage(caught, locale)); }
+  };
+
+  return <div className={styles.layout}>
+    <PageHeader title={cs ? "Historie běhů" : "Run history"} description={cs ? "Otevři uložený experiment nebo herní epizodu a prohlédni zadání, odpovědi, nastavení i spotřebu." : "Open a saved experiment or game episode to inspect inputs, answers, settings, and usage."} actions={<button className={styles.secondaryButton} onClick={() => void refresh()}>{cs ? "Obnovit" : "Refresh"}</button>} />
+    <div className={styles.tabs} role="tablist" aria-label={cs ? "Typ záznamu" : "Record type"}><button role="tab" aria-selected={tab === "runs"} onClick={() => setTab("runs")}>{cs ? "Experimenty" : "Experiments"} ({runs.length})</button><button role="tab" aria-selected={tab === "episodes"} onClick={() => setTab("episodes")}>{cs ? "Herní epizody" : "Game episodes"} ({episodes.length})</button></div>
+    {loading && <div className={styles.empty} role="status">{cs ? "Načítám uložené záznamy…" : "Loading saved records…"}</div>}
+    {!loading && tab === "runs" && <>
+      {runsError && <div className={styles.empty} role="alert">{runsError}</div>}
+      {!runsError && runs.length === 0 && <div className={styles.empty}>{cs ? "Historie je prázdná. Napiš první prompt nebo spusť arénu; výsledek se uloží sem." : "History is empty. Run your first prompt or arena comparison; its result will appear here."} <Link href="/ai-lab/prompt-tokens" className="link">{cs ? "Otevřít Prompt a tokeny" : "Open Prompt & Tokens"}</Link></div>}
+      <div className={styles.recordList}>{runs.map((run) => <RunEntry key={run.id} run={run} locale={locale} />)}</div>
+    </>}
+    {!loading && tab === "episodes" && <>
+      {episodesError && <div className={styles.empty} role="alert">{episodesError}</div>}
+      {!episodesError && episodes.length === 0 && <div className={styles.empty}>{cs ? "Zatím tu není žádná herní epizoda. Spusť Flappy AI a výsledek se uloží sem." : "No game episodes yet. Run Flappy AI and its result will appear here."} <Link href="/ai-lab/flappy" className="link">Flappy AI</Link></div>}
+      <div className={styles.recordList}>{episodes.map((episode) => <EpisodeEntry key={episode.id} episode={episodeDetails[episode.id] ?? episode} locale={locale} onOpen={() => void loadEpisode(episode.id)} />)}</div>
+    </>}
+  </div>;
+}
+
+function RunEntry({ run, locale }: { run: ExperimentRecord; locale: "en" | "cs" }) {
+  const cs = locale === "cs";
+  const spec = run.spec ?? {};
+  const results = Array.isArray(run.results) ? run.results : [];
+  const messages = Array.isArray(spec.messages) ? spec.messages.filter((item): item is { role: string; content: string } => Boolean(item) && typeof item === "object" && typeof item.role === "string" && typeof item.content === "string") : [];
+  const prompt = typeof spec.prompt === "string" ? spec.prompt : typeof spec.input === "object" && spec.input && "prompt" in spec.input ? String((spec.input as { prompt: unknown }).prompt) : messages.filter((item) => item.role === "user").map((item) => item.content).join("\n") || null;
+  const system = typeof spec.system_prompt === "string" ? spec.system_prompt : messages.filter((item) => item.role === "system").map((item) => item.content).join("\n");
+  const settings = typeof spec.settings === "object" && spec.settings ? spec.settings as Record<string, unknown> : Object.fromEntries(["temperature", "top_p", "max_tokens", "stop", "seed"].filter((key) => spec[key] !== undefined).map((key) => [key, spec[key]]));
+  const modelKeys = Array.isArray(spec.model_keys) ? spec.model_keys.join(", ") : run.model ?? "—";
+  const costs = results.flatMap((item) => [item.cost?.estimated_usd, ...([item.judge, item.order_check].filter((extra) => extra && typeof extra === "object").map((extra) => typeof extra?.cost === "object" && extra.cost && "estimated_usd" in extra.cost ? extra.cost.estimated_usd as number | null : undefined))]);
+  const knownCost = costs.length && costs.every((item) => typeof item === "number") ? costs.reduce<number>((sum, item) => sum + (item ?? 0), 0) : run.usage?.cost_usd;
+  return <details className={styles.record}><summary><strong>{run.name || run.kind || (cs ? "Běh" : "Run")}</strong><span className={styles.status} data-status={run.status}>{run.status}</span><small>{formatDate(run.created_at, locale)}</small></summary><div className={styles.recordBody}>
+    <dl className={styles.recordDetails}><div><dt>{cs ? "Typ" : "Type"}</dt><dd>{run.kind ?? "prompt"}</dd></div><div><dt>{cs ? "Modely" : "Models"}</dt><dd>{modelKeys}</dd></div><div><dt>{cs ? "Vstupní tokeny" : "Input tokens"}</dt><dd>{run.usage?.input_tokens ?? "—"}</dd></div><div><dt>{cs ? "Výstupní tokeny" : "Output tokens"}</dt><dd>{run.usage?.output_tokens ?? "—"}</dd></div><div><dt>{cs ? "Odhad ceny" : "Cost estimate"}</dt><dd>{formatCost(knownCost, locale)}</dd></div></dl>
+    {prompt && <section><h3>{cs ? "Zadání" : "Prompt"}</h3><p>{prompt}</p></section>}
+    {system && <section><h3>{cs ? "Systémová instrukce" : "System instruction"}</h3><p>{system}</p></section>}
+    {Object.keys(settings).length > 0 && <section><h3>{cs ? "Nastavení" : "Settings"}</h3><p>{Object.entries(settings).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : String(value)}`).join(" · ")}</p></section>}
+    {run.error && <section><h3>{cs ? "Chyba" : "Error"}</h3><p>{run.error}</p></section>}
+    {results.length > 0 && <div className={styles.resultGrid}>{results.map((result, index) => <SavedResult key={`${result.model_key}-${result.case_id ?? index}`} result={result} locale={locale} />)}</div>}
+    {!results.length && run.status === "completed" && <p>{cs ? "Tento starší záznam neobsahuje uloženou odpověď." : "This older record has no saved answer."}</p>}
+    {run.metrics?.quality_winner && <p>{cs ? "Vítěz podle referenční kvality" : "Reference quality winner"}: {run.metrics.quality_winner}</p>}
+  </div></details>;
+}
+
+function SavedResult({ result, locale }: { result: ExperimentResult; locale: "en" | "cs" }) {
+  return <article className={styles.resultCard}><h3>{result.model_key}</h3><span className={styles.status} data-status={result.status}>{result.status}</span>{result.case_id && <small> {result.case_id}</small>}<p>{result.output ?? result.error ?? "—"}</p><div className={styles.resultMeta}><span>{result.latency_ms ?? "—"} ms</span><span>{result.usage?.input_tokens ?? "—"} / {result.usage?.output_tokens ?? "—"} {locale === "cs" ? "tokenů" : "tokens"}</span><span>{formatCost(result.cost?.estimated_usd, locale)}</span></div>
+    {result.grade && <p className={styles.inlineNote}>{locale === "cs" ? "Hodnocení" : "Grade"}: {result.grade.method ?? "—"} · {typeof result.grade.score === "number" ? `${Math.round(result.grade.score * 100)}%` : "—"}</p>}
+    {result.judge && <p className={styles.inlineNote}>{locale === "cs" ? "Názor AI soudce" : "AI judge opinion"}: {result.judge.opinion ?? "—"}</p>}
+    {result.order_check && <p className={styles.inlineNote}>{locale === "cs" ? "Při obráceném pořadí podkladů" : "With evidence order reversed"}: {result.order_check.same_answer ? locale === "cs" ? "stejná odpověď" : "same answer" : locale === "cs" ? "jiná odpověď" : "different answer"}. {result.order_check.reversed_output}</p>}
+  </article>;
+}
+
+function EpisodeEntry({ episode, locale, onOpen }: { episode: EpisodeRecord; locale: "en" | "cs"; onOpen: () => void }) {
+  const cs = locale === "cs";
+  const replay = episode.replay && typeof episode.replay === "object" ? episode.replay as { decisions?: Array<{ index?: number; action?: string; callback_ms?: number; reason?: string }> } : null;
+  return <details className={styles.record} onToggle={(event) => { if (event.currentTarget.open) onOpen(); }}><summary><strong>{episode.model_key ?? episode.agent}</strong><span className={styles.status} data-status={episode.status}>{episode.status}</span><small>{formatDate(episode.created_at, locale)}</small></summary><div className={styles.recordBody}>
+    <dl className={styles.recordDetails}><div><dt>{cs ? "Skóre" : "Score"}</dt><dd>{episode.score ?? "—"}</dd></div><div><dt>Seed</dt><dd>{episode.seed ?? "—"}</dd></div><div><dt>{cs ? "Rozhodnutí" : "Decisions"}</dt><dd>{episode.decision_count ?? "—"}</dd></div><div><dt>{cs ? "Snímky" : "Frames"}</dt><dd>{episode.frames ?? "—"}</dd></div><div><dt>{cs ? "Odhad ceny" : "Cost estimate"}</dt><dd>{formatCost(episode.cost_usd, locale)}</dd></div></dl>
+    {episode.death_reason && <p>{cs ? "Konec hry" : "Game ended"}: {episode.death_reason}</p>}{episode.error && <p role="alert">{episode.error}</p>}
+    {replay?.decisions?.length ? <section><h3>{cs ? "Rozhodnutí agenta" : "Agent decisions"}</h3><div className={styles.recordDetails}>{replay.decisions.slice(0, 12).map((decision, index) => <div key={index}><dt>#{decision.index ?? index + 1}</dt><dd>{decision.action ?? "—"}{decision.callback_ms ? ` · ${Math.round(decision.callback_ms)} ms` : ""}</dd></div>)}</div>{replay.decisions.length > 12 && <p>{cs ? "Další rozhodnutí najdeš ve Flappy AI." : "See the remaining decisions in Flappy AI."}</p>}</section> : <p>{cs ? "Načítám rozhodnutí a replay…" : "Loading decisions and replay…"}</p>}
+    <Link href={`/ai-lab/flappy?replay=${encodeURIComponent(episode.id)}`} className="link">{cs ? "Otevřít replay ve Flappy AI" : "Open replay in Flappy AI"}</Link>
+  </div></details>;
+}

@@ -1,22 +1,53 @@
 "use client";
 
-import { Check, Cloud, HardDrive, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { useApp } from "@/components/app-provider";
-import { Button, InfoTip, MetricLabel, PageHeader, Panel } from "@/components/ui";
-import { providers as fixtureProviders } from "@/lib/fixtures";
-import type { ProviderRecord } from "@/lib/types";
+import { Cloud, HardDrive, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import { useApp, type CatalogModel } from "@/components/app-provider";
+import { PageHeader } from "@/components/ui";
+import { errorMessage, fetchJson } from "./live-api";
+import styles from "./provider-settings.module.css";
+
+interface ProviderStatus { id: string; mode: "local" | "cloud"; configured: boolean; reachable: boolean; detail: string }
+interface Catalog { providers: ProviderStatus[]; models: CatalogModel[] }
+const names: Record<string, string> = { ollama: "Ollama", openai: "OpenAI", anthropic: "Anthropic", gemini: "Gemini", openai_compatible: "OpenAI-compatible" };
 
 export function ProvidersPage() {
-  const { t } = useApp();
-  const { data = fixtureProviders } = useQuery({ queryKey: ["providers"], queryFn: async () => { const response = await fetch("/api/v1/providers"); if (!response.ok) throw new Error("Provider API unavailable"); return response.json() as Promise<ProviderRecord[]>; } });
-  const [checking, setChecking] = useState<string | null>(null);
-  const [checks, setChecks] = useState<Record<string, boolean>>({});
-  const check = (id: string) => { setChecking(id); window.setTimeout(() => { setChecking(null); setChecks((current) => ({ ...current, [id]: id === "fixture" })); }, 650); };
-  return <><PageHeader title={t("providers.title")} description={t("providers.subtitle")} /><p className="privacy-note"><Cloud size={15} />{t("providers.envHint")}</p><div className="provider-grid">{data.map((provider) => <Panel key={provider.id} className="provider-card"><header className="provider-heading"><span className={`provider-icon ${provider.mode}`} >{provider.mode === "local" ? <HardDrive size={19} /> : <Cloud size={19} />}</span><div><div className="panel-title-row"><h2>{provider.name}</h2><InfoTip label={provider.name} context="section" /></div><span>{provider.detail}</span></div><span className={`mode-badge mode-${provider.mode}`}>{t(`app.${provider.mode}`)}</span></header><div className="capabilities"><Capability label={t("providers.generation")} value={provider.capabilities.generation} /><Capability label={t("providers.embeddings")} value={provider.capabilities.embeddings} /><Capability label={t("providers.structured")} value={provider.capabilities.structured_output} /><Capability label={t("providers.streaming")} value={provider.capabilities.streaming} /><Capability label={t("providers.tools")} value={provider.capabilities.tool_calling} /><Capability label={t("providers.usage")} value={provider.capabilities.token_usage} /></div><footer><span className={provider.configured ? "status-text success" : "status-text muted"}>{provider.configured ? <Check size={12} /> : <X size={12} />}{provider.configured ? t("app.configured") : t("app.notConfigured")}</span><Button variant="secondary" onClick={() => check(provider.id)} loading={checking === provider.id}>{checking === provider.id ? t("providers.checking") : checks[provider.id] ? t("providers.connected") : t("providers.test")}</Button></footer></Panel>)}</div></>;
-}
+  const { locale, refreshModels } = useApp();
+  const cs = locale === "cs";
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const refresh = useCallback(async (force = false) => {
+    setLoading(true);
+    try {
+      const next = await fetchJson<Catalog>(force ? "/api/v1/models?refresh=true" : "/api/v1/models");
+      setCatalog(next);
+      setError(null);
+      if (force) void refreshModels(true);
+    } catch (caught) { setError(errorMessage(caught, locale)); }
+    finally { setLoading(false); }
+  }, [locale, refreshModels]);
+  useEffect(() => { queueMicrotask(() => void refresh()); }, [refresh]);
 
-function Capability({ label, value }: { label: string; value: boolean }) {
-  return <div><MetricLabel label={label} />{value ? <Check className="positive" size={14} /> : <X className="muted" size={14} />}</div>;
+  return <div className={styles.layout}>
+    <PageHeader title={cs ? "Poskytovatelé" : "Providers"} description={cs ? "Tady uvidíš, které služby opravdu odpovídají a jaké modely jsou právě dostupné." : "See which services respond and which models are actually available right now."} actions={<button type="button" className={styles.secondaryButton} onClick={() => void refresh(true)} disabled={loading}><RefreshCw size={15} />{cs ? "Znovu ověřit" : "Check again"}</button>} />
+    {loading && <div className={styles.info} role="status">{cs ? "Ověřuji připojení a načítám modely…" : "Checking connections and loading models…"}</div>}
+    {error && <div className={styles.error} role="alert">{error}</div>}
+    {!loading && catalog && <div className={styles.providerGrid}>{catalog.providers.filter((item) => item.id !== "fixture").map((provider) => {
+      const providerModels = catalog.models.filter((model) => model.provider === provider.id && model.available);
+      const generation = providerModels.filter((model) => Array.isArray(model.capabilities) ? model.capabilities.includes("generation") : model.capabilities?.generation);
+      const embeddings = providerModels.filter((model) => Array.isArray(model.capabilities) ? model.capabilities.includes("embeddings") : model.capabilities?.embeddings);
+      const status = provider.reachable ? "connected" : provider.configured ? "unreachable" : "unconfigured";
+      return <section className={styles.providerCard} key={provider.id}>
+        <div className={styles.providerHeading}><span className={styles.providerIcon}>{provider.mode === "local" ? <HardDrive size={22} /> : <Cloud size={22} />}</span><div><h2>{names[provider.id] ?? provider.id}</h2><small>{provider.mode === "local" ? cs ? "Na tvém počítači" : "On this computer" : cs ? "Cloudové API" : "Cloud API"}</small></div><span className={styles.status} data-state={status}>{status === "connected" ? cs ? "Připojeno" : "Connected" : status === "unconfigured" ? cs ? "Nenastaveno" : "Not configured" : cs ? "Nedostupné" : "Unavailable"}</span></div>
+        <div className={styles.providerMetrics}><div><strong>{generation.length}</strong><span>{cs ? "modelů pro odpovědi" : "answer models"}</span></div><div><strong>{embeddings.length}</strong><span>{cs ? "embedding modelů" : "embedding models"}</span></div></div>
+        {providerModels.length > 0 ? <div className={styles.modelChips}>{providerModels.slice(0, 8).map((model) => <span key={model.key}>{model.id}</span>)}{providerModels.length > 8 && <span>+{providerModels.length - 8}</span>}</div> : <p className={styles.providerHint}>{provider.id === "ollama" ? cs ? "Spusť Ollamu a nainstaluj generativní model. Potom klikni na Znovu ověřit." : "Start Ollama and install a generation model, then check again." : status === "unconfigured" ? cs ? "Přidej API klíč v nastavení. Po uložení se modely objeví zde i v horní nabídce." : "Add an API key in Settings. Models will then appear here and in the top bar." : cs ? "Služba teď nevrací modely. Zkontroluj klíč, síť a detail níže." : "The service is not returning models. Check the key, network, and detail below."}</p>}
+        {status === "unreachable" && <p className={styles.detail}>{provider.detail}</p>}
+        {provider.mode === "cloud" && <Link href="/settings#api-keys" className={styles.textLink}>{cs ? "Nastavit připojení" : "Configure connection"}</Link>}
+      </section>;
+    })}</div>}
+    {!loading && catalog?.providers.length === 0 && <div className={styles.info}>{cs ? "API zatím nehlásí žádného poskytovatele." : "The API reports no providers yet."}</div>}
+    <p className={styles.footnote}>{cs ? "Seznam vzniká z odpovědí poskytovatelů. Model, který není dostupný, není možné z této stránky spustit." : "This list comes from provider responses. An unavailable model cannot be started from this page."}</p>
+  </div>;
 }

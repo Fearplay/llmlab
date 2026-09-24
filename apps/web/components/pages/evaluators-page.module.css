@@ -1,0 +1,16 @@
+.page { display: grid; gap: 20px; }
+.intro { display: flex; align-items: flex-start; gap: 11px; padding: 16px 18px; border-left: 3px solid var(--blue); background: var(--blue-soft); }
+.intro svg { flex: none; color: var(--blue); }
+.intro p { max-width: 90ch; margin: 0; color: var(--ink); font-size: 12px; line-height: 1.6; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.card { min-height: 170px; padding: 20px; border: 1px solid var(--line); background: var(--paper); }
+.card > div { display: flex; align-items: center; justify-content: space-between; color: var(--blue); }
+.card > div span { color: var(--ink-soft); font: 500 10px "IBM Plex Mono", monospace; }
+.card h2 { margin: 17px 0 7px; font-size: 17px; }
+.card p { max-width: 56ch; margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
+.last { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px; border: 1px solid var(--line); background: var(--paper); }
+.last span { color: var(--blue); font: 600 10px "IBM Plex Mono", monospace; letter-spacing: .07em; }
+.last h2 { margin: 7px 0; font-size: 18px; }
+.last p { margin: 0; color: var(--ink-soft); font-size: 12px; }
+.last a { display: inline-flex; align-items: center; gap: 7px; flex: none; color: var(--blue); font-size: 12px; font-weight: 600; }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .last { align-items: flex-start; flex-direction: column; } }

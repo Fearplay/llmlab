@@ -1,52 +1,49 @@
 "use client";
 
-import { Calculator } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, Calculator, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, HelpLabel, Notice, PageHeader, Panel, ProgressBar, ProvenanceStrip } from "@/components/ui";
-import type { RagSearchResult, RagStatus } from "@/lib/types";
+import { Button, Notice, PageHeader } from "@/components/ui";
+import { errorMessage, fetchJson } from "./live-api";
+import styles from "./embeddings-page.module.css";
 
-export function EmbeddingsPage() {
-  const { locale } = useApp();
-  const [query, setQuery] = useState("Jak dlouho můžu vrátit běžné zařízení?");
-  const [status, setStatus] = useState<RagStatus | null>(null);
-  const [results, setResults] = useState<RagSearchResult[]>([]);
-  const [language, setLanguage] = useState("—");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => { fetch("/api/v1/rag/status").then(async (response) => { if (!response.ok) throw new Error(await response.text()); return response.json(); }).then((data: RagStatus) => setStatus(data)).catch(() => setError("RAG status unavailable")); }, []);
-  const calculate = async () => {
-    setLoading(true); setError(""); setResults([]); setLanguage("—");
-    try {
-      const response = await fetch("/api/v1/rag/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: query, top_k: 8 }) });
-      if (!response.ok) throw new Error(await searchError(response));
-      const payload = await response.json() as { query_language: string; results: RagSearchResult[] };
-      setLanguage(payload.query_language); setResults(payload.results);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
-    finally { setLoading(false); }
-  };
-  return <>
-    <PageHeader title={locale === "cs" ? "Embeddingy a hybridní retrieval" : "Embeddings and hybrid retrieval"} description={locale === "cs" ? "Porovnej skutečnou dense podobnost, BM25 a výsledné vážené skóre nad anglickým corpusem." : "Compare real dense similarity, BM25, and the final weighted score over the English corpus."} helpKey="page.embeddings" />
-    {status && <ProvenanceStrip mode="fixture" provider="Real local index" model={status.embedding_model} tail={`${status.vector_dimensions} dimensions · ${status.chunk_count} chunks`} />}
-    {error && <Notice tone="danger" title="Search unavailable">{error}</Notice>}
-    <Panel title={locale === "cs" ? "Dotaz" : "Query"}>
-      <div className="embedding-query"><label className="field"><HelpLabel label={locale === "cs" ? "Český nebo anglický dotaz" : "Czech or English query"} /><textarea rows={3} maxLength={2000} value={query} onChange={(event) => { setQuery(event.target.value); setResults([]); setLanguage("—"); setError(""); }} /></label><Button loading={loading} onClick={() => void calculate()}><Calculator size={15} />{locale === "cs" ? "Spočítat" : "Calculate"}</Button></div>
-      <div className="score-ledger"><div><span>language</span><strong className="mono">{language}</strong></div><div><span>model</span><strong className="mono">{status?.embedding_model ?? "…"}</strong></div><div><span>dimensions</span><strong className="mono">{status?.vector_dimensions ?? "…"}</strong></div><div><span>projection</span><strong className="mono">not shown</strong></div></div>
-    </Panel>
-    <Panel title={locale === "cs" ? "Pořadí skutečných chunků" : "Real chunk ranking"} aside={<span className="panel-meta">dense {Math.round((status?.dense_weight ?? 0) * 100)}% · BM25 {Math.round((status?.lexical_weight ?? 0) * 100)}%</span>}>
-      {!results.length ? <div className="rag-empty"><p>{locale === "cs" ? "Výsledky vzniknou až po skutečném API požadavku." : "Results appear only after a real API request."}</p></div> : <div className="ranking-table"><div className="ranking-head rag-ranking"><span>#</span><span>Chunk</span><span>Dense</span><span>BM25</span><span>Fused</span></div>{results.map((item, index) => <div className="ranking-row rag-ranking" key={item.chunk_id}><strong className="mono">{index + 1}</strong><p><b>{item.document_id} · {item.section}</b><small className="mono">{item.path}</small>{item.excerpt}</p><Score value={item.dense_score} /><Score value={item.lexical_score} /><Score value={item.fused_score} /></div>)}</div>}
-    </Panel>
-  </>;
+interface EmbeddingResult { vectors: number[][]; dimensions: number; provider: string; model: string; usage: { input_tokens: number }; fixture: boolean }
+function supports(capabilities: string[] | Record<string, boolean>) { return Array.isArray(capabilities) ? capabilities.includes("embeddings") : capabilities?.embeddings === true; }
+function cosine(a: number[], b: number[]) {
+  if (!a.length || a.length !== b.length) return null;
+  const dot = a.reduce((sum, value, index) => sum + value * b[index], 0);
+  const aa = Math.sqrt(a.reduce((sum, value) => sum + value * value, 0));
+  const bb = Math.sqrt(b.reduce((sum, value) => sum + value * value, 0));
+  return aa && bb ? dot / aa / bb : null;
 }
 
-function Score({ value }: { value: number }) { return <div><strong className="mono">{value.toFixed(4)}</strong><ProgressBar value={value * 100} /></div>; }
-
-async function searchError(response: Response): Promise<string> {
-  try {
-    const payload = await response.json() as { detail?: unknown };
-    if (typeof payload.detail === "string") return payload.detail;
-  } catch {
-    // A concise status is clearer than proxy HTML or an empty body.
-  }
-  return `Search failed (${response.status})`;
+export function EmbeddingsPage() {
+  const { locale, models } = useApp();
+  const cs = locale === "cs";
+  const available = useMemo(() => models.filter((model) => model.available && supports(model.capabilities)), [models]);
+  const [modelKey, setModelKey] = useState("");
+  const [first, setFirst] = useState("");
+  const [second, setSecond] = useState("");
+  const [result, setResult] = useState<EmbeddingResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => { if (!modelKey && available.length) queueMicrotask(() => setModelKey(available.find((model) => model.mode === "local")?.key ?? available[0].key)); }, [modelKey, available]);
+  const calculate = async () => {
+    const selected = available.find((model) => model.key === modelKey);
+    if (!selected || !first.trim() || !second.trim()) return;
+    setLoading(true); setResult(null); setError(null);
+    try {
+      const data = await fetchJson<EmbeddingResult>("/api/v1/embeddings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: selected.mode, provider: selected.provider, model: selected.id, inputs: [first.trim(), second.trim()] }) });
+      setResult(data);
+    } catch (caught) { setError(errorMessage(caught, locale)); }
+    finally { setLoading(false); }
+  };
+  const similarity = result?.vectors?.length === 2 ? cosine(result.vectors[0], result.vectors[1]) : null;
+  return <div className={styles.page}>
+    <PageHeader eyebrow={cs ? "VEKTOROVÝ PROSTOR" : "VECTOR SPACE"} title={cs ? "Embeddingy a podobnost" : "Embeddings and similarity"} description={cs ? "Nechte skutečný embeddingový model převést dvě věty na vektory a prohlédněte si jejich kosinovou podobnost." : "Use a real embedding model to turn two sentences into vectors and inspect their cosine similarity."} helpKey="page.embeddings" />
+    {error && <Notice tone="danger" title={cs ? "Embedding se nepodařil" : "Embedding failed"}>{error}</Notice>}
+    <section className={styles.workspace}><div className={styles.form}><span className={styles.kicker}>01 / INPUT</span><h2>{cs ? "Porovnejte dva texty" : "Compare two texts"}</h2><label>{cs ? "Embeddingový model" : "Embedding model"}<select value={modelKey} onChange={(event) => { setModelKey(event.target.value); setResult(null); }}>{available.map((model) => <option key={model.key} value={model.key}>{model.key}</option>)}</select></label><label>{cs ? "První text" : "First text"}<textarea rows={4} value={first} onChange={(event) => { setFirst(event.target.value); setResult(null); }} placeholder={cs ? "Napište první větu…" : "Write the first sentence…"} /></label><label>{cs ? "Druhý text" : "Second text"}<textarea rows={4} value={second} onChange={(event) => { setSecond(event.target.value); setResult(null); }} placeholder={cs ? "Napište druhou větu…" : "Write the second sentence…"} /></label><Button loading={loading} disabled={!modelKey || !first.trim() || !second.trim()} onClick={() => void calculate()}><Calculator size={15} />{cs ? "Vypočítat podobnost" : "Calculate similarity"}</Button>{!available.length && <p className={styles.help}>{cs ? "Není dostupný embeddingový model. V Ollamě stáhněte např. all-minilm a obnovte seznam modelů." : "No embedding model is available. Pull e.g. all-minilm in Ollama and refresh the models."}</p>}</div><div className={styles.output}><span className={styles.kicker}>02 / RESULT</span><h2>{cs ? "Co model naměřil" : "What the model measured"}</h2>{result && similarity !== null ? <><div className={styles.score}><span>{cs ? "KOSINOVÁ PODOBNOST" : "COSINE SIMILARITY"}</span><strong>{similarity.toFixed(3)}</strong><p>{cs ? "1 znamená stejný směr vektorů, 0 pravý úhel, −1 opačný směr. Vyšší skóre často značí podobný význam, ale výsledek závisí na modelu." : "1 means aligned vectors, 0 orthogonal, −1 opposite. Higher scores often indicate similar meaning, but interpretation depends on the model."}</p></div><div className={styles.details}><div><span>{cs ? "Rozměry" : "Dimensions"}</span><strong>{result.dimensions}</strong></div><div><span>{cs ? "Vstupní tokeny" : "Input tokens"}</span><strong>{result.usage.input_tokens}</strong></div><div><span>{cs ? "Model" : "Model"}</span><strong>{result.model}</strong></div></div><div className={styles.vector}><span>{cs ? "Prvních 24 složek obou vektorů" : "First 24 components of both vectors"}</span>{result.vectors.map((vector, index) => <div key={index} className={styles.bars} aria-label={`${cs ? "Vektor" : "Vector"} ${index + 1}`}>{vector.slice(0, 24).map((value, position) => <i key={position} style={{ height: `${Math.max(4, Math.min(100, 50 + value * 45))}%` }} />)}</div>)}</div></> : <div className={styles.empty}><Sparkles size={22} /><strong>{cs ? "Výsledek vznikne až po výpočtu" : "Results appear after calculation"}</strong><p>{cs ? "Vektory nevyplňujeme ukázkovými čísly." : "No sample numbers are prefilled."}</p></div>}</div></section>
+    <p className={styles.help}>{cs ? "Chcete vyhledávat v dokumentech pomocí embeddingů?" : "Want to search documents with embeddings?"} <Link href="/ai-lab/rag">{cs ? "Otevřít RAG" : "Open RAG"}<ArrowRight size={13} /></Link></p>
+  </div>;
 }

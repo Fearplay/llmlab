@@ -1,0 +1,270 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useApp } from "@/components/app-provider";
+import styles from "./flappy-page.module.css";
+
+type Action = "FLAP" | "WAIT";
+type GameStatus = "queued" | "running" | "completed" | "failed";
+type GameEpisode = {
+  id: string; agent: string; model_key: string | null; status: GameStatus;
+  seed: number; score: number; frames: number; decision_count: number;
+  input_tokens: number; output_tokens: number; cost_usd: number | null;
+  decision_latency_ms: number; death_reason: string | null; error: string | null;
+};
+type GameObservation = {
+  frame: number; score: number; alive: boolean; floor_y: number; width: number; height: number;
+  bird: { x: number; y: number; vy: number; radius: number };
+  pipes: { id: number; x: number; width: number; gap_top: number; gap_bottom: number }[];
+};
+type Model = { key: string; id: string; provider: string; mode: string; available: boolean; capabilities: { generation: boolean; vision?: boolean } };
+type LeaderRow = { key: string; agent: string; model_key: string | null; runs: number; best: number; average: number; input_tokens: number; output_tokens: number; cost_usd: number | null };
+type Replay = { steps: { observation: GameObservation; action: Action; result: { observation: GameObservation } }[]; final_state: Record<string, unknown> };
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/v1/game${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = body?.detail;
+    throw new Error(typeof detail === "string" ? detail : `HTTP ${response.status}`);
+  }
+  return body as T;
+}
+
+function GameBoard({ observation }: { observation: GameObservation | null }) {
+  const view = observation;
+  return <div className={styles.boardShell}>
+    <svg className={styles.board} viewBox="0 0 480 640" role="img" aria-label="Flappy AI game board">
+      <defs>
+        <pattern id="flappy-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M 32 0 L 0 0 0 32" fill="none" stroke="#c9d7ef" strokeWidth="1" /></pattern>
+        <clipPath id="game-clip"><rect width="480" height="640" /></clipPath>
+      </defs>
+      <rect width="480" height="640" fill="#e8eeff" />
+      <rect width="480" height="640" fill="url(#flappy-grid)" opacity=".45" />
+      <g clipPath="url(#game-clip)">{view?.pipes.map((pipe) => <g key={pipe.id}>
+        <rect x={pipe.x} y={0} width={pipe.width} height={pipe.gap_top} fill="#275efe" />
+        <rect x={pipe.x - 5} y={pipe.gap_top - 16} width={pipe.width + 10} height={16} fill="#1946cb" />
+        <rect x={pipe.x} y={pipe.gap_bottom} width={pipe.width} height={view.floor_y - pipe.gap_bottom} fill="#275efe" />
+        <rect x={pipe.x - 5} y={pipe.gap_bottom} width={pipe.width + 10} height={16} fill="#1946cb" />
+      </g>)}</g>
+      <rect x="0" y={view?.floor_y ?? 568} width="480" height="72" fill="#18222d" />
+      <line x1="0" x2="480" y1={view?.floor_y ?? 568} y2={view?.floor_y ?? 568} stroke="#275efe" strokeWidth="6" />
+      {view ? <g>
+        <circle cx={view.bird.x} cy={view.bird.y} r={view.bird.radius + 4} fill="#fbfaf6" />
+        <circle cx={view.bird.x} cy={view.bird.y} r={view.bird.radius} fill="#f0ad65" />
+        <circle cx={view.bird.x + 5} cy={view.bird.y - 5} r="2.8" fill="#171a1d" />
+        <path d={`M ${view.bird.x + 13} ${view.bird.y} l 13 5 -13 4 Z`} fill="#b75c12" />
+      </g> : <g><circle cx="120" cy="256" r="20" fill="#f0ad65" /><text x="240" y="315" fill="#18222d" textAnchor="middle" fontSize="17" fontFamily="IBM Plex Sans">Flappy AI</text></g>}
+      <text x="20" y="42" fill="#18222d" fontSize="28" fontWeight="700" fontFamily="IBM Plex Mono">{view?.score ?? 0}</text>
+      {view && !view.alive && <g><rect x="68" y="252" width="344" height="114" fill="#18222d" /><text x="240" y="300" textAnchor="middle" fill="#fff" fontSize="26" fontWeight="700" fontFamily="IBM Plex Sans">Konec hry</text><text x="240" y="336" textAnchor="middle" fill="#a8beff" fontSize="16" fontFamily="IBM Plex Mono">Skóre {view.score}</text></g>}
+    </svg>
+    <div className={styles.boardCaption}><span>Seed {view ? "aktivní" : "—"}</span><span>{view ? `Snímek ${view.frame}` : "Připravte první hru"}</span></div>
+  </div>;
+}
+
+export function FlappyPage({ initialReplayId = null }: { initialReplayId?: string | null }) {
+  const { locale } = useApp();
+  const cs = locale === "cs";
+  const [models, setModels] = useState<Model[]>([]);
+  const [modelSearch, setModelSearch] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [seed, setSeed] = useState(42);
+  const [episodes, setEpisodes] = useState<GameEpisode[]>([]);
+  const [leaders, setLeaders] = useState<LeaderRow[]>([]);
+  const [observation, setObservation] = useState<GameObservation | null>(null);
+  const [humanId, setHumanId] = useState<string | null>(null);
+  const [live, setLive] = useState(false);
+  const [trainingId, setTrainingId] = useState<string | null>(null);
+  const [trainingStatus, setTrainingStatus] = useState("");
+  const [checkpointReady, setCheckpointReady] = useState(false);
+  const [replay, setReplay] = useState<Replay | null>(null);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [playingReplay, setPlayingReplay] = useState(false);
+  const [autoReplayId, setAutoReplayId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const flapPending = useRef(false);
+  const requestPending = useRef(false);
+  const observationRef = useRef<GameObservation | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [history, board] = await Promise.all([
+        api<{ episodes: GameEpisode[] }>("/episodes"),
+        api<{ rows: LeaderRow[] }>(`/leaderboard?seed=${seed}`),
+      ]);
+      setEpisodes(history.episodes);
+      setLeaders(board.rows);
+    } catch (cause) { setError((cause as Error).message); }
+  }, [seed]);
+
+  useEffect(() => {
+    void Promise.resolve().then(refresh);
+    fetch("/api/v1/models").then((response) => response.json()).then((body) => {
+      const available = Array.isArray(body.models) ? body.models as Model[] : [];
+      setModels(available.filter((model) => model.capabilities?.generation && model.available));
+    }).catch(() => setModels([]));
+    void api<{ ready: boolean }>("/checkpoint").then((body) => setCheckpointReady(body.ready)).catch(() => {});
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!initialReplayId) return;
+    void Promise.all([
+      api<{ seed: number }>(`/episodes/${encodeURIComponent(initialReplayId)}`),
+      api<{ verified: boolean; replay: Replay }>(`/episodes/${encodeURIComponent(initialReplayId)}/replay`),
+    ]).then(([episode, result]) => {
+      setSeed(episode.seed);
+      setReplay(result.replay);
+      setReplayIndex(0);
+    }).catch((cause) => setError((cause as Error).message));
+  }, [initialReplayId]);
+
+  useEffect(() => {
+    if (!episodes.some((episode) => episode.status === "running" || episode.status === "queued") && !trainingId) return;
+    const timer = window.setInterval(() => {
+      void refresh();
+      if (trainingId) void api<{ status: string; error: string | null }>(`/train/${trainingId}`).then((item) => {
+        setTrainingStatus(item.error || item.status);
+        if (item.status === "completed") {
+          setTrainingId(null); setCheckpointReady(true);
+        } else if (item.status === "failed") setTrainingId(null);
+      }).catch((cause) => setError((cause as Error).message));
+    }, 1300);
+    return () => window.clearInterval(timer);
+  }, [episodes, trainingId, refresh]);
+
+  useEffect(() => {
+    if (!autoReplayId) return;
+    const episode = episodes.find((item) => item.id === autoReplayId);
+    if (!episode || episode.status === "queued" || episode.status === "running") return;
+    queueMicrotask(() => setAutoReplayId(null));
+    if (episode.status !== "completed") return;
+    void api<{ verified: boolean; replay: Replay }>(`/episodes/${episode.id}/replay`)
+      .then((result) => { setReplay(result.replay); setReplayIndex(0); setPlayingReplay(true); })
+      .catch((cause) => setError((cause as Error).message));
+  }, [episodes, autoReplayId]);
+
+  useEffect(() => { observationRef.current = observation; }, [observation]);
+
+  useEffect(() => {
+    if (!live || !humanId) return;
+    const timer = window.setInterval(async () => {
+      const current = observationRef.current;
+      if (!current || requestPending.current) return;
+      requestPending.current = true;
+      const action: Action = flapPending.current ? "FLAP" : "WAIT";
+      flapPending.current = false;
+      try {
+        const result = await api<GameEpisode & { observation: GameObservation }>(`/human/${humanId}/step`, {
+          method: "POST", body: JSON.stringify({ action, frames: 12, expected_frame: current.frame }),
+        });
+        setObservation(result.observation);
+        if (result.status === "completed") { setLive(false); void refresh(); }
+      } catch (cause) { setLive(false); setError((cause as Error).message); }
+      finally { requestPending.current = false; }
+    }, 245);
+    return () => window.clearInterval(timer);
+  }, [live, humanId, refresh]);
+
+  useEffect(() => {
+    if (!live) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.code === "Space" && !(event.target instanceof HTMLInputElement)) {
+        event.preventDefault(); flapPending.current = true;
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [live]);
+
+  useEffect(() => {
+    if (!playingReplay || !replay) return;
+    const timer = window.setInterval(() => setReplayIndex((index) => {
+      if (index >= replay.steps.length - 1) { setPlayingReplay(false); return index; }
+      return index + 1;
+    }), 245);
+    return () => window.clearInterval(timer);
+  }, [playingReplay, replay]);
+
+  const displayObservation = replay
+    ? replay.steps[replayIndex]?.result.observation ?? replay.steps[0]?.observation ?? observation
+    : observation;
+  const matchingModels = useMemo(() => models.filter((model) => `${model.provider} ${model.id}`.toLowerCase().includes(modelSearch.toLowerCase())), [models, modelSearch]);
+  const activeCount = episodes.filter((episode) => episode.status === "queued" || episode.status === "running").length;
+
+  const startHuman = async () => {
+    setError(""); setBusy(true); setReplay(null);
+    try {
+      const result = await api<GameEpisode & { observation: GameObservation }>("/human", {
+        method: "POST", body: JSON.stringify({ seed }),
+      });
+      setHumanId(result.id); setObservation(result.observation); setLive(true);
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  };
+  const finishHuman = async () => {
+    setLive(false);
+    if (humanId) {
+      try { await api(`/human/${humanId}/finish`, { method: "POST" }); await refresh(); }
+      catch (cause) { setError((cause as Error).message); }
+    }
+  };
+  const startAgent = async (agent: "random" | "rule" | "dqn") => {
+    setError(""); setBusy(true); setReplay(null); setPlayingReplay(false);
+    try {
+      const created = await api<{ id: string }>("/episodes", { method: "POST", body: JSON.stringify({ agent, seed, max_decisions: 100 }) });
+      setAutoReplayId(created.id);
+      await refresh();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  };
+  const startTournament = async () => {
+    setError(""); setBusy(true);
+    try {
+      await api("/tournament", { method: "POST", body: JSON.stringify({ model_keys: selected, seeds: [seed], include_baselines: true, max_decisions: 50 }) });
+      await refresh();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  };
+  const trainDqn = async () => {
+    setError(""); setBusy(true);
+    try {
+      const result = await api<{ id: string; status: string }>("/train", { method: "POST", body: JSON.stringify({ seed, episodes: 50, max_decisions: 100 }) });
+      setTrainingId(result.id); setTrainingStatus(result.status);
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  };
+  const loadReplay = async (episode: GameEpisode) => {
+    setError(""); setLive(false); setPlayingReplay(false);
+    try {
+      const result = await api<{ verified: boolean; replay: Replay }>(`/episodes/${episode.id}/replay`);
+      setReplay(result.replay); setReplayIndex(0);
+    } catch (cause) { setError((cause as Error).message); }
+  };
+  const toggleModel = (key: string) => setSelected((items) => items.includes(key) ? items.filter((item) => item !== key) : [...items, key].slice(0, 8));
+
+  return <div className={styles.page}>
+    <header className={styles.header}><div><h1>Flappy AI</h1><p>{cs ? "Otestujte člověka, pravidla i skutečné modely na stejné trati. Každé rozhodnutí lze přehrát." : "Test a human, rules and real models on the same course. Every decision can be replayed."}</p></div><div className={styles.headerStats}><strong>{leaders[0]?.best ?? "—"}</strong><span>{cs ? "nejvyšší skóre při tomto seedu" : "highest score on this seed"}</span></div></header>
+    {error && <div className={styles.error} role="alert">{error}</div>}
+    <div className={styles.layout}>
+      <section className={styles.playArea} aria-label={cs ? "Herní plocha" : "Game area"}>
+        <GameBoard observation={displayObservation} />
+        <div className={styles.liveControls}>
+          <div><strong>{replay ? cs ? "Ověřený replay" : "Verified replay" : live ? cs ? "Hrajete vy" : "You are playing" : cs ? "Připraveno" : "Ready"}</strong><span>{replay ? `${replayIndex + 1} / ${replay.steps.length}` : live ? cs ? "Mezerník nebo tlačítko Máchnout" : "Space or Flap button" : cs ? "Zvolte typ hráče" : "Choose a player"}</span></div>
+          {live && <button className={styles.flapButton} onPointerDown={() => { flapPending.current = true; }}>↑ {cs ? "Máchnout" : "Flap"}</button>}
+        </div>
+        {replay && <div className={styles.replayControl}><button onClick={() => setPlayingReplay((value) => !value)}>{playingReplay ? cs ? "Pozastavit" : "Pause" : cs ? "Přehrát" : "Play"}</button><input aria-label={cs ? "Snímek replaye" : "Replay step"} type="range" min="0" max={Math.max(0, replay.steps.length - 1)} value={replayIndex} onChange={(event) => setReplayIndex(Number(event.target.value))} /><span>{replay.steps[replayIndex]?.action ?? "—"}</span></div>}
+      </section>
+      <div className={styles.controls}>
+        <section className={styles.controlSection}><h2>{cs ? "Spusťte hru" : "Start a game"}</h2><p>{cs ? "Seed určuje rozložení překážek. Stejné číslo znamená stejnou trať." : "The seed fixes the obstacle layout. The same number means the same course."}</p><label className={styles.seedLabel}>{cs ? "Seed tratě" : "Course seed"}<input type="number" min="0" max="2147483647" value={seed} onChange={(event) => setSeed(Math.max(0, Number(event.target.value) || 0))} /></label><div className={styles.buttonGrid}><button className={styles.primaryButton} disabled={busy || live} onClick={startHuman}>{cs ? "Hrát sám" : "Play yourself"}</button><button disabled={busy} onClick={() => void startAgent("random")}>{cs ? "Náhodný agent" : "Random agent"}</button><button disabled={busy} onClick={() => void startAgent("rule")}>{cs ? "Pravidlový agent" : "Rule agent"}</button><button disabled={busy || !checkpointReady} onClick={() => void startAgent("dqn")}>DQN {checkpointReady ? "" : cs ? "· nejdřív trénovat" : "· train first"}</button></div>{live && <button className={styles.textButton} onClick={finishHuman}>{cs ? "Ukončit a uložit hru" : "Finish and save game"}</button>}</section>
+        <section className={styles.controlSection}><h2>{cs ? "Modelový turnaj" : "Model tournament"}</h2><p>{cs ? "Vyberte modely. Každý dostane stejný seed a nejvýš 50 rozhodnutí. Volání cloudových modelů může být placené." : "Select models. Each gets the same seed and at most 50 decisions. Cloud calls may incur charges."}</p><input className={styles.search} value={modelSearch} onChange={(event) => setModelSearch(event.target.value)} placeholder={cs ? "Hledat model…" : "Search models…"} aria-label={cs ? "Hledat model" : "Search model"} /><div className={styles.modelList}>{matchingModels.length ? matchingModels.map((model) => <label key={model.key}><input type="checkbox" checked={selected.includes(model.key)} onChange={() => toggleModel(model.key)} /><span><strong>{model.id}</strong><small>{model.provider} · {model.mode}</small></span></label>) : <p>{cs ? "Žádný dostupný generativní model. Spusťte Ollamu nebo nastavte API klíč." : "No generation model available. Start Ollama or configure an API key."}</p>}</div><button className={styles.primaryButton} disabled={busy || activeCount > 0} onClick={startTournament}>{cs ? `Spustit turnaj (${selected.length} modelů + 2 základní)` : `Run tournament (${selected.length} models + 2 baselines)`}</button>{activeCount > 0 && <p className={styles.running}>{cs ? `Běží ${activeCount} epizod…` : `${activeCount} episodes running…`}</p>}</section>
+        <section className={styles.controlSection}><h2>{cs ? "Naučit DQN" : "Train DQN"}</h2><p>{cs ? "Malá neuronová síť se učí z vlastních her na tomto počítači. Checkpoint se uloží pro další hraní." : "A small neural network learns from its own games on this computer. Its checkpoint is saved for future play."}</p><button disabled={busy || !!trainingId} onClick={trainDqn}>{cs ? "Trénovat 50 epizod" : "Train 50 episodes"}</button>{trainingStatus && <span className={styles.running}>{trainingStatus}</span>}</section>
+      </div>
+    </div>
+    <section className={styles.results}><div className={styles.sectionHeading}><div><h2>{cs ? "Žebříček" : "Leaderboard"}</h2><p>{cs ? `Stejná trať: seed ${seed}. Průměr vzniká z dokončených epizod každého hráče.` : `Same course: seed ${seed}. Average uses completed episodes for each player.`}</p></div><button onClick={() => void refresh()}>{cs ? "Obnovit" : "Refresh"}</button></div>{leaders.length ? <div className={styles.tableScroll}><table><thead><tr><th>{cs ? "Hráč" : "Player"}</th><th>{cs ? "Nejlepší" : "Best"}</th><th>{cs ? "Průměr" : "Average"}</th><th>{cs ? "Běhy" : "Runs"}</th><th>{cs ? "Tokeny" : "Tokens"}</th><th>{cs ? "API cena" : "API cost"}</th></tr></thead><tbody>{leaders.map((row, index) => <tr key={row.key}><td><span className={styles.rank}>{index + 1}</span>{row.model_key || row.agent}</td><td>{row.best}</td><td>{row.average.toFixed(1)}</td><td>{row.runs}</td><td>{row.input_tokens + row.output_tokens}</td><td>{row.cost_usd == null ? "—" : `$${row.cost_usd.toFixed(4)}`}</td></tr>)}</tbody></table></div> : <p className={styles.empty}>{cs ? "Zatím žádné skóre pro tento seed. Spusťte první hru nebo turnaj." : "No scores for this seed yet. Start a game or tournament."}</p>}</section>
+    <section className={styles.results}><div className={styles.sectionHeading}><div><h2>{cs ? "Poslední epizody" : "Recent episodes"}</h2><p>{cs ? "Otevřete replay a sledujte uložené akce po krocích." : "Open a replay to inspect the saved actions step by step."}</p></div></div>{episodes.length ? <div className={styles.history}>{episodes.slice(0, 20).map((episode) => <button key={episode.id} disabled={episode.status !== "completed"} onClick={() => void loadReplay(episode)}><span><strong>{episode.model_key || episode.agent}</strong><small>seed {episode.seed} · {episode.decision_count} {cs ? "rozhodnutí" : "decisions"}</small></span><span>{episode.status === "failed" ? episode.error || "failed" : episode.status === "completed" ? `${cs ? "Skóre" : "Score"} ${episode.score}` : episode.status}</span><span>{episode.status === "completed" ? cs ? "Přehrát" : "Replay" : "—"}</span></button>)}</div> : <p className={styles.empty}>{cs ? "Historie je prázdná. První hra se tu uloží automaticky." : "History is empty. Your first game will be saved here automatically."}</p>}</section>
+  </div>;
+}

@@ -1,3 +1,3 @@
-import { TrainingPage } from "@/components/pages/training-page";
+import { redirect } from "next/navigation";
 
-export default function Page() { return <TrainingPage />; }
+export default function Page() { redirect("/ai-lab/flappy"); }

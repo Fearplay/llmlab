@@ -1,3 +1,3 @@
-import { KnowledgeBasePage } from "@/components/pages/knowledge-base-page";
+import { redirect } from "next/navigation";
 
-export default function Page() { return <KnowledgeBasePage />; }
+export default function Page() { redirect("/ai-lab/rag"); }

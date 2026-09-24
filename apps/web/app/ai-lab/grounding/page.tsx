@@ -1,3 +1,3 @@
-import { GroundingPage } from "@/components/pages/grounding-page";
+import { redirect } from "next/navigation";
 
-export default function Page() { return <GroundingPage />; }
+export default function Page() { redirect("/ai-lab/rag"); }

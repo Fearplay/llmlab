@@ -1,20 +1,35 @@
 "use client";
 
-import { Braces, Check, FileCheck2, Scale, Sparkles, WholeWord } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Braces, CheckCheck, CircleHelp, Scale, WholeWord } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { DefinitionTerm, InfoTip, PageHeader, Panel, ProgressBar, ProvenanceStrip } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
+import { fetchJson, type ExperimentRecord } from "./live-api";
+import styles from "./evaluators-page.module.css";
 
-const evaluatorData = [
-  { key: "exact", icon: WholeWord, type: "deterministic", threshold: "1.00", score: 100 },
-  { key: "schema", icon: Braces, type: "deterministic", threshold: "1.00", score: 99.8 },
-  { key: "semantic", icon: Sparkles, type: "modelBased", threshold: "0.85", score: 88 },
-  { key: "judge", icon: FileCheck2, type: "modelBased", threshold: "0.80", score: 91.2 },
-  { key: "pairwise", icon: Scale, type: "modelBased", threshold: "0.55 win rate", score: 58 },
+const methods = [
+  { id: "exact_match", icon: WholeWord, cs: "Přesná shoda", en: "Exact match", csText: "Porovná celý text odpovědi s referencí po sjednocení velikosti písmen a mezer. Hodí se pro krátké jednoznačné odpovědi.", enText: "Compares the whole answer with a reference after normalizing case and spacing. Best for short, unambiguous answers." },
+  { id: "partial_match", icon: Scale, cs: "Částečná shoda", en: "Partial match", csText: "Měří, kolik slov očekávané odpovědi se vyskytuje ve výstupu. Delší správnou větu tak nepenalizuje, ale neumí ověřit význam ani odhalit rozpor.", enText: "Measures how many reference words appear in the output. It accepts a longer answer, but cannot verify meaning or detect contradictions." },
+  { id: "contains", icon: CheckCheck, cs: "Obsahuje text", en: "Contains text", csText: "Zkontroluje, zda odpověď obsahuje očekávaný text. Vhodné pro klíčová fakta nebo požadovanou frázi.", enText: "Checks whether the answer contains expected text. Useful for key facts or required phrases." },
+  { id: "json_schema", icon: Braces, cs: "JSON schéma", en: "JSON schema", csText: "Přečte odpověď jako JSON a ověří ji proti vašemu schématu. Testuje strukturu, nikoli pravdivost hodnot.", enText: "Parses the answer as JSON and validates it against your schema. Tests structure, not factual accuracy." },
 ];
 
 export function EvaluatorsPage() {
-  const { t } = useApp();
-  const [enabled, setEnabled] = useState<Record<string, boolean>>({ exact: true, schema: true, semantic: false, judge: true, pairwise: true });
-  return <><PageHeader title={t("evaluators.title")} description={t("evaluators.subtitle")} helpKey="page.evaluators" /><ProvenanceStrip mode="fixture" tail="5 evaluator versions · support-v4" /><div className="evaluator-grid">{evaluatorData.map(({ key, icon: Icon, type, threshold, score }) => <Panel key={key} className="evaluator-card"><div className="evaluator-heading"><span className="evaluator-icon"><Icon size={19} /></span><div><div className="panel-title-row"><h2>{t(`evaluators.${key}`)}</h2><InfoTip label={t(`evaluators.${key}`)} context="section" /></div><span>{t(`evaluators.${type}`)}</span></div><label className="switch"><input type="checkbox" aria-label={`${t("evaluators.enabled")}: ${t(`evaluators.${key}`)}`} checked={enabled[key]} onChange={(event) => setEnabled((current) => ({ ...current, [key]: event.target.checked }))} /><span /></label></div><dl className="definition-list"><div><DefinitionTerm label={t("evaluators.threshold")} /><dd className="mono">{threshold}</dd></div><div><DefinitionTerm label={t("evaluators.latestScore")} /><dd className="mono">{score}%</dd></div></dl><ProgressBar value={score} tone={score >= 80 ? "green" : "blue"} /><p className="limitation"><strong>{t("evaluators.limitation")}:</strong> {t(`evaluators.${key}Limit`)}</p>{enabled[key] && <span className="status-text success"><Check size={12} />{t("evaluators.enabled")}</span>}</Panel>)}</div></>;
+  const { locale } = useApp();
+  const cs = locale === "cs";
+  const [latest, setLatest] = useState<ExperimentRecord | null>(null);
+  useEffect(() => {
+    fetchJson<ExperimentRecord[]>("/api/v1/experiments")
+      .then((runs) => setLatest(runs.find((run) => run.kind === "evaluation") ?? null))
+      .catch(() => undefined);
+  }, []);
+  const grades = (latest?.results ?? []).flatMap((item) => item.grade ? [item.grade] : []);
+  const measured = grades.length ? grades.reduce((sum, grade) => sum + (grade.score ?? 0), 0) / grades.length : null;
+  return <div className={styles.page}>
+    <PageHeader eyebrow={cs ? "VYHODNOCENÍ" : "SCORING"} title={cs ? "Jak hodnotíme odpovědi" : "How answers are scored"} description={cs ? "Metriku zvolíte u každé otázky v datasetu. Výsledek se počítá až ze skutečné odpovědi modelu." : "Choose a metric for each dataset case. Scores are calculated only from the model’s real answer."} />
+    <div className={styles.intro}><CircleHelp size={19} /><p>{cs ? "Skóre je pomůcka, nikoli verdikt o pravdivosti. Bez referenční odpovědi nebo schématu aplikace kvalitu neodhaduje. Volitelný AI hodnotitel v Aréně ukazuje názor modelu zvlášť." : "A score is a guide, not a verdict on truth. Without a reference or schema, the app does not infer answer quality. The optional AI judge in Arena is shown separately as a model opinion."}</p></div>
+    <div className={styles.grid}>{methods.map(({ id, icon: Icon, cs: nameCs, en, csText, enText }) => <article key={id} className={styles.card}><div><Icon size={20} /><span>{id}</span></div><h2>{cs ? nameCs : en}</h2><p>{cs ? csText : enText}</p></article>)}</div>
+    <section className={styles.last}><div><span>{cs ? "POSLEDNÍ EVALUACE" : "LATEST EVALUATION"}</span><h2>{latest?.name ?? (cs ? "Zatím žádná evaluace" : "No evaluation yet")}</h2><p>{measured === null ? (cs ? "Vytvořte dataset a spusťte ho s vybraným modelem." : "Create a dataset and run it with a selected model.") : `${grades.length} ${cs ? "ohodnocených odpovědí" : "scored answers"} · ${(measured * 100).toFixed(1)} %`}</p></div><Link href="/datasets">{cs ? "Otevřít datasety" : "Open datasets"}<ArrowRight size={15} /></Link></section>
+  </div>;
 }

@@ -1,6 +1,5 @@
-import { ComparePage } from "@/components/pages/compare-page";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ComparePage />;
+  redirect("/arena");
 }
-

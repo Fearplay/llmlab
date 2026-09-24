@@ -1,39 +1,57 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Check, CircleHelp, ThumbsDown, ThumbsUp } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, HelpLabel, InfoTip, MetricLabel, PageHeader, Panel, ProgressBar, ProvenanceStrip } from "@/components/ui";
-import { compareCases } from "@/lib/fixtures";
+import { Button, Notice, PageHeader } from "@/components/ui";
+import { errorMessage, fetchJson, type ExperimentRecord, type ExperimentResult } from "./live-api";
+import styles from "./reviews-page.module.css";
+
+interface Review { id: string; run_id: string; case_id: string; verdict: "good" | "bad"; comment: string; created_at: string }
+interface Item { run: ExperimentRecord; result: ExperimentResult; index: number }
 
 export function ReviewsPage() {
-  const { t } = useApp();
+  const { locale } = useApp();
+  const cs = locale === "cs";
+  const [runs, setRuns] = useState<ExperimentRecord[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [index, setIndex] = useState(0);
-  const [verdict, setVerdict] = useState<"good" | "bad" | null>(null);
-  const [saved, setSaved] = useState(false);
-  const item = compareCases[index];
-  return <>
-    <PageHeader title={t("reviews.title")} description={t("reviews.subtitle")} />
-    <ProvenanceStrip mode="fixture" provider="Human review queue" model="judge-medium" tail={`run_0191 · ${compareCases.length} cases`} />
-    <div className="review-toolbar"><div><span>{t("reviews.queue")}</span><strong className="mono">{index + 1} / {compareCases.length}</strong><ProgressBar value={(index + 1) / compareCases.length * 100} /></div><div className="pager"><Button variant="secondary" disabled={index === 0} onClick={() => { setIndex(index - 1); setVerdict(null); setSaved(false); }}><ChevronLeft size={14} />{t("reviews.previous")}</Button><Button variant="secondary" disabled={index === compareCases.length - 1} onClick={() => { setIndex(index + 1); setVerdict(null); setSaved(false); }}>{t("reviews.next")}<ChevronRight size={14} /></Button></div></div>
-    <div className="review-layout">
-      <Panel title={`${item.id} · ${item.slice}`}>
-        <ReviewBlock label="User prompt" text={item.prompt} />
-        <ReviewBlock label={t("reviews.correctness")} text={item.candidateOutput} candidate />
-        <ReviewBlock label={t("reviews.expectedBehavior")} text={item.expected} />
-        <ReviewBlock label={t("reviews.sourceEvidence")} text={item.source} evidence />
-      </Panel>
-      <Panel title={t("reviews.judgment")}>
-        <p className="review-question">{t("reviews.question")}</p>
-        <div className="verdict-buttons"><button className={verdict === "good" ? "selected good" : ""} onClick={() => { setVerdict("good"); setSaved(false); }}><ThumbsUp size={20} /><strong>{t("reviews.good")}</strong><span>{t("reviews.goodHint")}</span></button><button className={verdict === "bad" ? "selected bad" : ""} onClick={() => { setVerdict("bad"); setSaved(false); }}><ThumbsDown size={20} /><strong>{t("reviews.bad")}</strong><span>{t("reviews.badHint")}</span></button></div>
-        <label className="field"><HelpLabel label={t("reviews.comment")} helpKey="field.reviewComment" /><textarea rows={5} defaultValue="Candidate contradicts the documented 30-day return window." /></label>
-        <div className="judge-finding"><MetricLabel label={t("reviews.modelJudge")} /><strong className="status-text danger">{t("common.fail")} · 0.96 {t("labs.confidence")}</strong><p>{item.evidence}</p></div>
-        {saved && <div className="success-message"><Check size={16} />{t("reviews.saved")}</div>}
-        <Button disabled={!verdict} onClick={() => setSaved(true)}>{t("reviews.submit")}</Button>
-      </Panel>
-    </div>
-    <Panel title={t("reviews.agreement")}><div className="agreement-row"><strong className="mono">87.4%</strong><ProgressBar value={87.4} tone="green" /><span>{t("reviews.disagreement")}</span></div></Panel>
-  </>;
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => {
+    try {
+      const [allRuns, allReviews] = await Promise.all([fetchJson<ExperimentRecord[]>("/api/v1/experiments"), fetchJson<Review[]>("/api/v1/reviews")]);
+      setRuns(allRuns); setReviews(allReviews); setError(null);
+    } catch (caught) { setError(errorMessage(caught, locale)); }
+  }, [locale]);
+  useEffect(() => { queueMicrotask(() => void load()); }, [load]);
+  const items = useMemo(() => runs.flatMap((run) => (run.results ?? []).map((result, position) => ({ run, result, index: position }))).filter(({ result }) => result.status === "completed" && Boolean(result.output)), [runs]);
+  const item: Item | undefined = items[index];
+  const saved = item ? reviews.find((review) => review.run_id === item.run.id && review.case_id === String(item.index)) : null;
+  const reviewed = items.filter((entry) => reviews.some((review) => review.run_id === entry.run.id && review.case_id === String(entry.index))).length;
+  const save = async (verdict: "good" | "bad") => {
+    if (!item) return;
+    setSaving(true); setError(null);
+    try {
+      await fetchJson<Review>("/api/v1/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: item.run.id, case_id: String(item.index), verdict, comment: comment.trim() }) });
+      await load(); setComment("");
+      if (index < items.length - 1) setIndex(index + 1);
+    } catch (caught) { setError(errorMessage(caught, locale)); }
+    finally { setSaving(false); }
+  };
+  return <div className={styles.page}>
+    <PageHeader eyebrow={cs ? "LIDSKÁ KONTROLA" : "HUMAN REVIEW"} title={cs ? "Posoudit odpovědi" : "Review answers"} description={cs ? "Přečtěte si skutečnou odpověď a sami označte, zda je použitelná. Vaše hodnocení se uloží k běhu." : "Read a real answer and mark whether it is useful. Your review is saved with the run."} />
+    {error && <Notice tone="danger" title={cs ? "Hodnocení se nepodařilo" : "Review failed"}>{error}</Notice>}
+    <div className={styles.stats}><strong>{reviewed} / {items.length}</strong><span>{cs ? "zkontrolovaných odpovědí" : "answers reviewed"}</span></div>
+    {item ? <section className={styles.card}><div className={styles.head}><div><span>{item.run.kind} · {item.result.model_key}</span><h2>{item.run.name}</h2><small>{item.result.case_id ?? "case"} · {item.run.id}</small></div><div className={styles.pager}><Button variant="secondary" disabled={index === 0} onClick={() => { setIndex(index - 1); setComment(""); }}>{cs ? "Předchozí" : "Previous"}</Button><span>{index + 1} / {items.length}</span><Button variant="secondary" disabled={index === items.length - 1} onClick={() => { setIndex(index + 1); setComment(""); }}>{cs ? "Další" : "Next"}</Button></div></div><div className={styles.body}>
+      {typeof item.run.spec?.prompt === "string" && item.run.spec.prompt && <div className={styles.question}><span>{cs ? "OTÁZKA" : "QUESTION"}</span><p>{item.run.spec.prompt}</p></div>}
+      <div className={styles.answer}><span>{cs ? "ODPOVĚĎ MODELU" : "MODEL ANSWER"}</span><p>{item.result.output}</p></div>
+      {item.result.grade && <p className={styles.metric}>{cs ? "Automatická metrika" : "Automatic metric"}: {item.result.grade.method} · {Math.round((item.result.grade.score ?? 0) * 100)} %</p>}
+      {saved && <p className={styles.saved}><Check size={16} />{cs ? "Dříve hodnoceno" : "Previously reviewed"}: {saved.verdict === "good" ? (cs ? "použitelné" : "useful") : (cs ? "nepoužitelné" : "not useful")}</p>}
+      <label className={styles.comment}>{cs ? "Poznámka (volitelné)" : "Note (optional)"}<textarea rows={3} value={comment} onChange={(event) => setComment(event.target.value)} /></label>
+      <div className={styles.actions}><Button variant="secondary" loading={saving} onClick={() => void save("bad")}><ThumbsDown size={15} />{cs ? "Nepoužitelné" : "Not useful"}</Button><Button loading={saving} onClick={() => void save("good")}><ThumbsUp size={15} />{cs ? "Použitelné" : "Useful"}</Button></div>
+    </div></section> : <div className={styles.empty}><CircleHelp size={23} /><h2>{cs ? "Zatím není co hodnotit" : "Nothing to review yet"}</h2><p>{cs ? "Spusťte prompt, arénu nebo RAG. Skutečné odpovědi se pak objeví zde." : "Run a prompt, arena comparison or RAG. Real answers will appear here."}</p><Link href="/arena">{cs ? "Otevřít arénu" : "Open arena"}<ArrowRight size={14} /></Link></div>}
+  </div>;
 }
-
-function ReviewBlock({ label, text, candidate, evidence }: { label: string; text: string; candidate?: boolean; evidence?: boolean }) { return <section className={`review-block ${candidate ? "candidate" : ""} ${evidence ? "evidence" : ""}`}><span className="section-label-with-help"><span>{label}</span><InfoTip label={label} context="section" /></span><p>{text}</p></section>; }

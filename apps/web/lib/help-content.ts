@@ -128,8 +128,12 @@ const help: Record<string, LocalizedHelp> = {
     cs: { title: "Poskytovatel", description: "Služba, která požadavek provede. Poskytovatelé nabízejí různé modely a schopnosti; nepodporovaná funkce musí zůstat vypnutá, ne předstíraná.", example: "OpenAI používá Responses API; Ollama spouští nainstalovaný model lokálně." },
   },
   "prompt.model": {
-    en: { title: "Model ID", description: "The exact provider model identifier sent to the API. Choose a verified suggestion or type another model ID available to your account.", example: "gpt-4.1 and gpt-4.1-mini are different model IDs with different cost and behavior." },
-    cs: { title: "ID modelu", description: "Přesný identifikátor modelu odeslaný do API poskytovatele. Vyber ověřený návrh nebo napiš jiné ID dostupné tvému účtu.", example: "gpt-4.1 a gpt-4.1-mini jsou různá ID s odlišnou cenou a chováním." },
+    en: { title: "Model", description: "Choose an available model in the top bar. Local models come from the Ollama installation; cloud models need a configured provider.", example: "Choose a local model to make a request on your computer." },
+    cs: { title: "Model", description: "Dostupný model vyber nahoře. Lokální modely pocházejí z instalace Ollamy; cloudové potřebují připojeného poskytovatele.", example: "Vyber lokální model a spusť dotaz na svém počítači." },
+  },
+  "prompt.maxTokens": {
+    en: { title: "Maximum output tokens", description: "The longest answer the model may generate for this request. A lower limit can stop the answer before it finishes.", example: "Try 128 for a short explanation; use a larger limit for a long response." },
+    cs: { title: "Maximum výstupních tokenů", description: "Nejdelší odpověď, kterou může model v tomto běhu vytvořit. Příliš nízký limit může odpověď utnout.", example: "Pro krátké vysvětlení zkus 128; pro delší odpověď limit zvyš." },
   },
   "prompt.temperature": {
     en: { title: "Temperature", description: "Controls how strongly lower-probability next tokens can compete with likely tokens. Lower values are usually steadier; higher values increase variation but do not add knowledge.", example: "Use 0–0.2 for repeatable extraction; try 0.7 for alternative phrasings." },
