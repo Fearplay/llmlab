@@ -34,6 +34,37 @@ async def test_ollama_catalog_uses_native_capabilities_and_cache() -> None:
     assert models["nomic-embed:latest"]["capabilities"]["generation"] is False
 
 
+@pytest.mark.asyncio
+@respx.mock
+async def test_cloud_catalog_reports_network_failure_without_exposing_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("llmlab_api.secret_settings._keyring", lambda: None)
+    respx.get("https://api.openai.com/v1/models").mock(
+        side_effect=httpx.ConnectError("proxy rejected connection")
+    )
+    _CACHE.clear()
+    catalog = await discover_models(Settings(ollama_base_url="", openai_api_key="test-secret"))
+    openai = next(item for item in catalog["providers"] if item["id"] == "openai")
+    assert openai["configured"] is True
+    assert openai["reachable"] is False
+    assert "network or proxy settings" in openai["detail"]
+    assert "test-secret" not in openai["detail"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_cloud_catalog_distinguishes_invalid_key_from_connection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("llmlab_api.secret_settings._keyring", lambda: None)
+    respx.get("https://api.openai.com/v1/models").mock(return_value=httpx.Response(401))
+    _CACHE.clear()
+    catalog = await discover_models(Settings(ollama_base_url="", openai_api_key="test-secret"))
+    openai = next(item for item in catalog["providers"] if item["id"] == "openai")
+    assert openai["detail"] == "HTTP 401: check the API key"
+
+
 def test_price_catalog_is_conservative() -> None:
     assert estimate_cost("ollama", "qwen:7b", 1000, 1000) == 0
     assert estimate_cost("openai", "unknown-model", 1000, 1000) is None

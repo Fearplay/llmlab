@@ -16,6 +16,17 @@ _CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 TTL_SECONDS = 60
 
 
+def _provider_error(error: BaseException) -> str:
+    if isinstance(error, httpx.HTTPStatusError):
+        status = error.response.status_code
+        return f"HTTP {status}: check the API key" if status in {401, 403} else f"HTTP {status}"
+    if isinstance(error, httpx.TimeoutException):
+        return "Connection timed out from the API server"
+    if isinstance(error, httpx.ConnectError):
+        return "Connection failed from the API server; check its network or proxy settings"
+    return type(error).__name__
+
+
 def ollama_api_base(settings: Settings) -> str:
     base = settings.ollama_base_url.rstrip("/")
     return base[:-3] if base.endswith("/v1") else base
@@ -184,7 +195,7 @@ async def discover_models(settings: Settings, *, refresh: bool = False) -> dict[
         if isinstance(outcome, BaseException):
             providers.append({"id": name, "mode": "local" if name == "ollama" else "cloud",
                               "configured": configured, "reachable": False,
-                              "detail": type(outcome).__name__})
+                              "detail": _provider_error(outcome)})
         else:
             providers.append({"id": name, "mode": "local" if name == "ollama" else "cloud",
                               "configured": configured, "reachable": True,

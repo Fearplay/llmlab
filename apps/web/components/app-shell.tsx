@@ -71,7 +71,7 @@ function ModelPicker() {
   const visible = ordered.filter((item) => `${item.id} ${item.provider}`.toLowerCase().includes(search.trim().toLowerCase()));
   const label = locale === "cs" ? "Vybrat model" : "Choose model";
   return <div className="model-picker" ref={root}>
-    <button className="model-picker-trigger" type="button" aria-label={label} aria-expanded={open} aria-haspopup="listbox" onClick={() => { setSearch(""); setActiveIndex(0); setOpen((value) => !value); }}>
+    <button className="model-picker-trigger" type="button" aria-label={label} aria-expanded={open} aria-haspopup="listbox" onClick={() => { if (!open) void refreshModels(); setSearch(""); setActiveIndex(0); setOpen((value) => !value); }}>
       <span className="model-picker-dot" data-mode={selectedModel?.mode ?? mode} />
       <span className="model-picker-current">{selectedModel ? selectedModel.id : modelsLoading ? (locale === "cs" ? "Načítám modely…" : "Loading models…") : (locale === "cs" ? "Vybrat model" : "Choose model")}</span><ChevronDown size={15} />
     </button>
