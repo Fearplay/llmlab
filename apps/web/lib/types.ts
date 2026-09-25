@@ -25,6 +25,7 @@ export interface ProviderRecord {
   configured: boolean;
   reachable: boolean | null;
   detail: string;
+  default_model?: string | null;
   capabilities: ProviderCapabilities;
 }
 
@@ -68,6 +69,85 @@ export interface RagChunk {
   score: number;
   text: string;
   relevant: boolean;
+}
+
+export interface RagSearchResult {
+  chunk_id: string;
+  document_id: string;
+  title: string;
+  section: string;
+  path: string;
+  language: string;
+  version: string;
+  synthetic: boolean;
+  excerpt: string;
+  dense_score: number;
+  lexical_score: number;
+  fused_score: number;
+  reranker_score: number | null;
+}
+
+export interface RagStatus {
+  ready: boolean;
+  corpus_id: string;
+  corpus_version: string;
+  synthetic: boolean;
+  document_count: number;
+  chunk_count: number;
+  embedding_model: string;
+  requested_embedding_model: string;
+  embedding_warning: string | null;
+  vector_dimensions: number;
+  indexed_at: string;
+  fingerprint: string;
+  reranker_enabled: boolean;
+  reranker_model: string;
+  local_generation_model: string;
+  dense_weight: number;
+  lexical_weight: number;
+  score_threshold: number;
+  documents: KnowledgeDocument[];
+}
+
+export interface KnowledgeDocument {
+  document_id: string;
+  title: string;
+  version: string;
+  effective_date: string;
+  language: string;
+  audience: string;
+  status: string;
+  synthetic: boolean;
+  path: string;
+  chunk_count: number;
+}
+
+export interface RagRunResult {
+  answer: string;
+  question: string;
+  query_language: string;
+  mode: ExecutionMode;
+  provider: string;
+  model: string;
+  fixture: boolean;
+  corpus: { id: string; version: string; synthetic: boolean };
+  retrieval: {
+    embedding_model: string;
+    vector_dimensions: number;
+    top_k: number;
+    score_threshold: number;
+    generation_skipped: boolean;
+    dense_weight: number;
+    lexical_weight: number;
+    reranker_enabled: boolean;
+  };
+  results: RagSearchResult[];
+  sources: Array<RagSearchResult & { score: number }>;
+  context: string;
+  final_prompt: string;
+  usage: { input_tokens: number; output_tokens: number; cached_tokens: number; cost_usd: number | null };
+  timings_ms: Record<string, number>;
+  latency_ms: number;
 }
 
 export interface CompareMetric {

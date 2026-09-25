@@ -1,113 +1,214 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Circle, FileText, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowRight, BookOpen, FileText, LoaderCircle, Search, Trash2, Upload } from "lucide-react";
+import Link from "next/link";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, HelpLabel, MetricLabel, ModeSelector, PageHeader, Panel, ProgressBar, Select } from "@/components/ui";
-import { ragChunks } from "@/lib/fixtures";
-import type { ExecutionMode } from "@/lib/types";
+import { AnswerReveal, HelpLabel, InfoTip, Button, Notice, PageHeader, RunStatus } from "@/components/ui";
+import { errorMessage, fetchJson, formatDate } from "./live-api";
+import styles from "./user-rag-page.module.css";
 
-const stages = ["parse", "chunk", "embed", "retrieve", "rerank", "generate", "evaluate"] as const;
-const timings = ["0.08 s", "0.21 s", "0.18 s", "0.34 s", "0.19 s", "0.32 s", "0.10 s"];
+type Strategy = "fixed" | "sentence" | "paragraph" | "semantic";
+interface Document { id: string; name: string; media_type: string; strategy: Strategy; chunk_size: number; overlap: number; embedding_model_key: string; chunk_count: number; created_at: string }
+interface Hit { chunk_id: string; document_id: string; document_name: string; text: string; start: number; end: number; page: number | null; score: number; dense_score: number; bm25_score: number | null; marker?: string }
+interface RagAnswer { answer: string; question: string; sources: Hit[]; citations: Hit[]; citation_markers_valid: boolean; grounding_status: string; citation_warning: string | null; usage: { input_tokens: number; output_tokens: number }; model_key: string; run_id: string; latency_ms: number; retrieval: { hits: Hit[] } }
+interface Chunk { id?: string; text: string; page?: number | null; start: number; end: number }
+interface ChunkPreview { id: string | null; name: string; chunks: Chunk[]; strategy: Strategy; chunkSize: number; overlap: number }
+
+function supports(capabilities: string[] | Record<string, boolean>, key: string) { return Array.isArray(capabilities) ? capabilities.includes(key) : capabilities?.[key] === true; }
 
 export function RagPage() {
-  const { t, mode: defaultMode, setMode: setDefaultMode } = useApp();
-  const [mode, setMode] = useState<ExecutionMode>(defaultMode);
-  const [question, setQuestion] = useState(t("rag.sampleQuestion"));
-  const [topK, setTopK] = useState(5);
-  const [chunkSize, setChunkSize] = useState(480);
+  const { locale, models, selectedModel } = useApp();
+  const cs = locale === "cs";
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [embeddingKey, setEmbeddingKey] = useState("");
+  const [strategy, setStrategy] = useState<Strategy>("fixed");
+  const [chunkSize, setChunkSize] = useState(450);
   const [overlap, setOverlap] = useState(80);
-  const [chunkStrategy, setChunkStrategy] = useState("recursive");
-  const [retrieval, setRetrieval] = useState("hybrid");
-  const [reranker, setReranker] = useState("on");
-  const [selectedStage, setSelectedStage] = useState(3);
-  const [selectedChunk, setSelectedChunk] = useState(1);
-  const [tab, setTab] = useState("chunk");
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(100);
-  const visibleChunks = ragChunks.slice(0, topK);
-  const chunk = ragChunks.find((item) => item.id === selectedChunk) ?? ragChunks[0];
+  const [sourceMode, setSourceMode] = useState<"text" | "file">("text");
+  const [textName, setTextName] = useState("Vložený text");
+  const [pastedText, setPastedText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [question, setQuestion] = useState("");
+  const [topK, setTopK] = useState(5);
+  const [bm25, setBm25] = useState(false);
+  const [temperature, setTemperature] = useState(0.2);
+  const [maxTokens, setMaxTokens] = useState(512);
+  const [answer, setAnswer] = useState<RagAnswer | null>(null);
+  const [preview, setPreview] = useState<ChunkPreview | null>(null);
+  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const embeddingModels = useMemo(() => models.filter((model) => model.available && supports(model.capabilities, "embeddings")), [models]);
+  const generationModels = useMemo(() => models.filter((model) => model.available && supports(model.capabilities, "generation")), [models]);
+  const [generationKey, setGenerationKey] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => setQuestion(t("rag.sampleQuestion")));
-  }, [t]);
+    if (embeddingKey || !embeddingModels.length) return;
+    queueMicrotask(() => setEmbeddingKey(embeddingModels.find((model) => model.mode === "local")?.key ?? embeddingModels[0].key));
+  }, [embeddingKey, embeddingModels]);
   useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setProgress((value) => {
-      const next = Math.min(100, value + 10);
-      setSelectedStage(Math.min(stages.length - 1, Math.floor(next / 15)));
-      if (next === 100) setRunning(false);
-      return next;
-    }), 180);
-    return () => window.clearInterval(timer);
-  }, [running]);
+    if (!generationModels.length) return;
+    queueMicrotask(() => setGenerationKey((current) => current || selectedModel?.key || generationModels[0].key));
+  }, [generationModels, selectedModel?.key]);
 
-  const run = () => { setProgress(0); setSelectedStage(0); setRunning(true); };
-  const provider = mode === "local" ? "Ollama" : mode === "cloud" ? "OpenAI" : "Fixture engine";
+  const refresh = useCallback(async () => {
+    try {
+      const data = await fetchJson<{ documents: Document[] }>("/api/v1/user-documents");
+      setDocuments(data.documents);
+      setStatusError(null);
+      setSelectedIds((current) => current.length
+        ? current.filter((id) => data.documents.some((doc) => doc.id === id))
+        : data.documents.map((doc) => doc.id));
+    } catch (caught) { setStatusError(errorMessage(caught, locale)); }
+  }, [locale]);
+  useEffect(() => { queueMicrotask(() => void refresh()); }, [refresh]);
+  useEffect(() => { if (preview) previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [preview]);
 
-  return (
-    <div className="rag-page">
-      <PageHeader title={t("rag.title")} description={t("rag.subtitle")} helpKey="page.rag" actions={<div className="rag-mode"><label>{t("app.mode")}</label><ModeSelector value={mode} onChange={(value) => { setMode(value); setDefaultMode(value); }} /></div>} />
-      <div className="question-row"><label className="field"><HelpLabel label={t("rag.question")} helpKey="field.ragQuestion" /><input value={question} onChange={(event) => setQuestion(event.target.value)} /></label><div className="field provider-field"><HelpLabel label={t("app.provider")} helpKey="prompt.provider" /><strong>{provider}</strong></div><Button onClick={run} loading={running}><Play size={14} />{t("rag.runPipeline")}</Button></div>
-      {running && <div className="pipeline-progress"><ProgressBar value={progress} /><span className="mono">{progress}%</span></div>}
+  const selectedDocuments = documents.filter((doc) => selectedIds.includes(doc.id));
+  const matchingDocuments = selectedDocuments.filter((doc) => doc.embedding_model_key === embeddingKey);
+  const activeSource = answer?.sources.find((item) => item.chunk_id === sourceId) ?? answer?.sources[0];
 
-      <div className="rag-workspace">
-        <Panel title={t("rag.configuration")} className="rag-config">
-          <FieldSelect label={t("rag.source")} helpKey="field.sourceCorpus" value="docs" disabled><option value="docs">{t("rag.sourceValue")}</option></FieldSelect>
-          <FieldSelect label={t("rag.chunkStrategy")} helpKey="field.chunkStrategy" value={chunkStrategy} onChange={setChunkStrategy}><option value="recursive">{t("rag.recursive")}</option><option value="sentence">{t("rag.sentenceBoundary")}</option><option value="fixed">{t("rag.fixedWindow")}</option></FieldSelect>
-          <div className="form-grid"><label className="field"><HelpLabel label={t("rag.chunkSize")} helpKey="rag.chunkSize" /><input type="number" min={80} max={2000} value={chunkSize} onChange={(event) => setChunkSize(Number(event.target.value))} /><small>{t("common.tokens")}</small></label><label className="field"><HelpLabel label={t("rag.overlap")} helpKey="rag.overlap" /><input type="number" min={0} max={500} value={overlap} onChange={(event) => setOverlap(Number(event.target.value))} /><small>{t("common.tokens")}</small></label></div>
-          <FieldSelect label={t("rag.embedding")} helpKey="field.embeddingModel" value={mode === "local" ? "nomic" : "fixture"} disabled><option value="fixture">fixture-embed-v1</option><option value="nomic">nomic-embed-text</option></FieldSelect>
-          <FieldSelect label={t("rag.retrieval")} helpKey="rag.retrieval" value={retrieval} onChange={setRetrieval}><option value="hybrid">{t("rag.hybrid")}</option><option value="vector">{t("rag.vectorOnly")}</option><option value="keyword">{t("rag.keywordOnly")}</option></FieldSelect>
-          <label className="field"><HelpLabel label={t("rag.topK")} helpKey="rag.topK" /><input type="range" min={1} max={5} value={topK} onChange={(event) => { const next = Number(event.target.value); setTopK(next); if (selectedChunk > next) setSelectedChunk(1); }} /><div className="range-output"><span>1</span><strong className="mono">{topK}</strong><span>5</span></div></label>
-          <FieldSelect label={t("rag.reranker")} helpKey="field.reranker" value={reranker} onChange={setReranker}><option value="on">{t("common.on")} · bge-reranker</option><option value="off">{t("common.off")}</option></FieldSelect>
-          <FieldSelect label={t("rag.generator")} helpKey="prompt.model" value={provider} disabled><option>{provider}</option></FieldSelect>
-          <div className={`mode-explainer mode-${mode}`}><strong>{t(`app.${mode}`)}</strong><span>{mode === "fixture" ? t("app.comingFromFixture") : mode === "local" ? "Requests stay on your Ollama host." : "Cloud request runs only after explicit action."}</span></div>
-        </Panel>
+  const sourcePayload = () => ({ name: textName.trim() || "Vložený text", text: pastedText, strategy, chunk_size: chunkSize, overlap, embedding_model_key: embeddingKey });
+  const clearDraftPreview = () => setPreview((current) => current?.id ? current : null);
+  const completeIndex = async (response: Response) => {
+    if (!response.ok) throw new Error(await responseError(response));
+    const data = await response.json() as { document: Document };
+    setFile(null);
+    await refresh();
+    setSelectedIds([data.document.id]);
+    await showChunks(data.document.id);
+  };
+  const loadSample = async () => {
+    if (!embeddingKey) return;
+    setLoadingSample(true); setActionError(null); setAnswer(null);
+    try {
+      const data = await fetchJson<{ name: string; text: string }>("/api/v1/user-rag/sample-text");
+      setTextName(data.name); setPastedText(data.text); setSourceMode("text");
+      setPreview(null);
+      const payload = { name: data.name, text: data.text, strategy, chunk_size: chunkSize, overlap, embedding_model_key: embeddingKey };
+      if (strategy !== "semantic") {
+        const draft = await fetchJson<{ chunks: Chunk[] }>("/api/v1/user-documents/text/preview", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
+        setPreview({ id: null, name: data.name, chunks: draft.chunks, strategy, chunkSize, overlap });
+      }
+      const response = await fetch("/api/v1/user-documents/text", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      await completeIndex(response);
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+    finally { setLoadingSample(false); }
+  };
+  const previewText = async () => {
+    if (!pastedText.trim() || (strategy === "semantic" && !embeddingKey)) return;
+    setPreviewing(true); setActionError(null);
+    try {
+      const data = await fetchJson<{ chunks: Chunk[] }>("/api/v1/user-documents/text/preview", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sourcePayload()),
+      });
+      setPreview({ id: null, name: textName.trim() || (cs ? "Vložený text" : "Pasted text"), chunks: data.chunks, strategy, chunkSize, overlap });
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+    finally { setPreviewing(false); }
+  };
+  const upload = async () => {
+    if (!embeddingKey || (sourceMode === "file" ? !file : !pastedText.trim())) return;
+    setUploading(true); setActionError(null); setAnswer(null);
+    try {
+      let response: Response;
+      if (sourceMode === "file") {
+        const body = new FormData();
+        body.set("file", file!); body.set("strategy", strategy); body.set("chunk_size", String(chunkSize)); body.set("overlap", String(overlap)); body.set("embedding_model_key", embeddingKey);
+        response = await fetch("/api/v1/user-documents", { method: "POST", body });
+      } else {
+        response = await fetch("/api/v1/user-documents/text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sourcePayload()) });
+      }
+      await completeIndex(response);
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+    finally { setUploading(false); }
+  };
+  const remove = async (id: string) => {
+    try {
+      const response = await fetch(`/api/v1/user-documents/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(await responseError(response));
+      if (preview?.id === id) setPreview(null);
+      setAnswer(null); await refresh();
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+  };
+  const showChunks = async (id: string) => {
+    try {
+      const data = await fetchJson<{ document: Document; chunks: Chunk[] }>(`/api/v1/user-documents/${encodeURIComponent(id)}/chunks`);
+      setPreview({ id, name: data.document.name, chunks: data.chunks, strategy: data.document.strategy, chunkSize: data.document.chunk_size, overlap: data.document.overlap }); setActionError(null);
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+  };
+  const ask = async () => {
+    if (!question.trim() || !generationKey || !matchingDocuments.length) return;
+    setAsking(true); setAnswer(null); setActionError(null);
+    try {
+      const data = await fetchJson<RagAnswer>("/api/v1/user-rag/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: question.trim(), generation_model_key: generationKey, embedding_model_key: embeddingKey, document_ids: matchingDocuments.map((doc) => doc.id), top_k: topK, bm25_rerank: bm25, temperature, max_tokens: maxTokens }) });
+      setAnswer(data); setSourceId(data.sources[0]?.chunk_id ?? null);
+    } catch (caught) { setActionError(errorMessage(caught, locale)); }
+    finally { setAsking(false); }
+  };
+  const onFile = (event: ChangeEvent<HTMLInputElement>) => { setFile(event.target.files?.[0] ?? null); setActionError(null); };
 
-        <div className="rag-center">
-          <Panel title={t("rag.pipeline")} className="pipeline-panel">
-            <div className="pipeline-stages">{stages.map((stage, index) => <button key={stage} className={`${selectedStage === index ? "selected" : ""} ${progress >= (index + 1) * 14 ? "complete" : ""}`} onClick={() => setSelectedStage(index)}><span>{progress >= (index + 1) * 14 ? <Check size={12} /> : index + 1}</span><strong>{t(`rag.${stage}`)}</strong><small className="mono">{progress >= (index + 1) * 14 ? timings[index] : "—"}</small></button>)}</div>
-          </Panel>
-          <Panel title={t("rag.retrieved")} aside={<span className="panel-meta">Top {topK} of 24</span>} className="chunks-panel">
-            <div className="chunk-list">{visibleChunks.map((item) => <button key={item.id} className={selectedChunk === item.id ? "selected" : ""} onClick={() => { setSelectedChunk(item.id); setTab("chunk"); }}><span className="chunk-rank"><Circle size={14} fill={selectedChunk === item.id ? "currentColor" : "none"} />#{item.id}</span><div><strong>{item.title}</strong><small className="mono">{item.source} · chunk {item.chunk}</small><p>{item.text}</p></div><div className="chunk-score"><strong className="mono">{item.score.toFixed(3)}</strong><ProgressBar value={item.score * 100} /></div></button>)}</div>
-          </Panel>
-        </div>
-
-        <Panel title={t("rag.evidence")} aside={<span className="inspector-pager"><ChevronLeft size={14} />{selectedChunk} / {topK}<ChevronRight size={14} /></span>} className="evidence-panel">
-          <div className="tabs" role="tablist">{["chunk", "context", "prompt", "claims"].map((item) => <button role="tab" aria-selected={tab === item} key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{t(`rag.${item}`)}</button>)}</div>
-          {tab === "chunk" && <ChunkInspector chunk={chunk} />}
-          {tab === "context" && <div className="inspector-content"><span className="section-label">Assembled context · {topK} chunks</span>{visibleChunks.map((item) => <blockquote key={item.id}><strong>[{item.id}] {item.title}</strong><p>{item.text}</p></blockquote>)}</div>}
-          {tab === "prompt" && <div className="inspector-content"><span className="section-label">{t("rag.finalPrompt")}</span><pre>{`SYSTEM\nAnswer only from CONTEXT. Cite sources.\n\nCONTEXT\n${visibleChunks.map((item) => `[${item.id}] ${item.text}`).join("\n")}\n\nQUESTION\n${question}`}</pre></div>}
-          {tab === "claims" && <ClaimsInspector />}
-        </Panel>
+  return <div className={styles.page}>
+    <PageHeader eyebrow="RAG / RETRIEVAL" title={cs ? "RAG nad vašimi dokumenty" : "RAG with your documents"} description={cs ? "Vložte dlouhý text nebo nahrajte soubor. Uvidíte přesné chunky, které se indexují a používají v odpovědi." : "Paste a long text or upload a file. Inspect the exact chunks used for indexing and answers."} helpKey="page.rag" />
+    {statusError && <Notice tone="danger" title={cs ? "Seznam dokumentů není dostupný" : "Documents are unavailable"}>{statusError}</Notice>}
+    {actionError && <Notice tone="danger" title={cs ? "Požadavek se nepodařil" : "Request failed"}>{actionError}</Notice>}
+    <div className={styles.grid}>
+      <div className={styles.left}>
+        <section className={styles.panel}><header><div><span className={styles.step}>01 / SOURCE</span><h2>{cs ? "Zdroj pro RAG" : "RAG source"}</h2></div><span>{documents.length} {cs ? "uloženo" : "saved"}</span></header><div className={styles.body}>
+          <div className={styles.sourceTabs} role="group" aria-label={cs ? "Typ zdroje" : "Source type"}><button type="button" aria-pressed={sourceMode === "text"} disabled={loadingSample} onClick={() => setSourceMode("text")}>{cs ? "Vložit text" : "Paste text"}</button><button type="button" aria-pressed={sourceMode === "file"} disabled={loadingSample} onClick={() => setSourceMode("file")}>{cs ? "Nahrát soubor" : "Upload file"}</button></div>
+          {sourceMode === "text" ? <div className={styles.textSource}>
+            <div className={styles.sampleRow}><p className={styles.hint}>{cs ? "Načtení dlouhého anglického příkladu Atlas Works ho rovnou rozdělí a zaindexuje do kroku 2. Pro české dotazy vyberte vícejazyčný embeddingový model. Cloudový embedding může být placený." : "Loading the long English Atlas Works example also chunks and indexes it in step 2. Use a multilingual embedding model for Czech questions. Cloud embeddings may incur a charge."}</p><button type="button" onClick={() => void loadSample()} disabled={!embeddingKey || loadingSample || uploading}>{loadingSample ? (cs ? "Načítám a indexuji…" : "Loading and indexing…") : (cs ? "Načíst a indexovat příklad" : "Load and index example")}</button></div>
+            <label className={styles.field}><HelpLabel label={cs ? "Název textu" : "Text name"} helpKey="field.documentName" /><input type="text" maxLength={120} disabled={loadingSample} value={textName} onChange={(event) => setTextName(event.target.value)} /></label>
+            <label className={styles.field}><HelpLabel label={cs ? "Text dokumentu" : "Document text"} helpKey="field.sourceCorpus" /><textarea rows={12} maxLength={100000} disabled={loadingSample} value={pastedText} onChange={(event) => { setPastedText(event.target.value); clearDraftPreview(); }} placeholder={cs ? "Sem vložte dlouhý text, který chcete rozdělit a prohledávat…" : "Paste the long text you want to chunk and search…"} /></label>
+            <span className={styles.counter}>{pastedText.length.toLocaleString(cs ? "cs-CZ" : "en-US")} / 100 000 {cs ? "znaků" : "characters"}</span>
+          </div> : <label className={styles.upload}><Upload size={23} /><InfoTip label={cs ? "Nahrát dokument" : "Upload document"} helpKey="field.uploadDocument" context="field" /><strong>{file?.name ?? (cs ? "Vybrat PDF, DOCX, TXT nebo Markdown" : "Choose PDF, DOCX, TXT or Markdown")}</strong><small>{cs ? "Max. 10 MB, text se uloží jen lokálně." : "Up to 10 MB; extracted text is stored locally."}</small><input type="file" accept=".pdf,.docx,.txt,.md,.markdown" onChange={onFile} /></label>}
+          <div className={styles.twoFields}><label className={styles.field}><HelpLabel label={cs ? "Metoda dělení" : "Chunking method"} helpKey="field.chunkStrategy" /><select value={strategy} disabled={loadingSample} onChange={(event) => { setStrategy(event.target.value as Strategy); clearDraftPreview(); }}><option value="fixed">{cs ? "Pevná délka" : "Fixed size"}</option><option value="sentence">{cs ? "Podle vět" : "Sentences"}</option><option value="paragraph">{cs ? "Podle odstavců" : "Paragraphs"}</option><option value="semantic">{cs ? "Podle významu" : "Semantic"}</option></select></label><label className={styles.field}><HelpLabel label={cs ? "Embedding model" : "Embedding model"} helpKey="field.embeddingModel" /><select value={embeddingKey} disabled={loadingSample} onChange={(event) => { setEmbeddingKey(event.target.value); clearDraftPreview(); }}>{embeddingModels.map((model) => <option key={model.key} value={model.key}>{model.key}</option>)}</select></label></div>
+          <div className={styles.twoFields}><label className={styles.field}><HelpLabel label={cs ? "Velikost úryvku" : "Chunk size"} helpKey="rag.chunkSize" /><div className={styles.slider}><input type="range" min={80} max={1200} step={10} disabled={loadingSample} value={chunkSize} onChange={(event) => { setChunkSize(Number(event.target.value)); clearDraftPreview(); }} /><strong>{chunkSize}</strong></div></label><label className={styles.field}><HelpLabel label={cs ? "Překryv" : "Overlap"} helpKey="rag.overlap" /><div className={styles.slider}><input type="range" min={0} max={Math.min(300, chunkSize - 10)} step={10} disabled={loadingSample} value={Math.min(overlap, chunkSize - 10)} onChange={(event) => { setOverlap(Number(event.target.value)); clearDraftPreview(); }} /><strong>{overlap}</strong></div></label></div>
+          <p className={styles.hint}>{cs ? "Menší úryvky vyhledávají přesněji, větší zachovají více souvislostí. Embedding převádí text na vektory pro hledání podobnosti." : "Smaller chunks improve precision; larger chunks preserve context. An embedding converts text into vectors for similarity search."}</p>
+          <p className={styles.hint}>{cs ? "Velikost a překryv jsou přibližné tokeny (backend počítá 4 znaky na token). Náhled ukazuje skutečné hranice v původním textu." : "Size and overlap are approximate tokens (the backend uses 4 characters per token). The preview shows actual boundaries in the source text."}</p>
+          {sourceMode === "text" && strategy === "semantic" && <p className={styles.hint}>{cs ? "Sémantický náhled volá embeddingový model. U cloudového modelu může vzniknout cena ještě před indexací." : "Semantic preview calls the embedding model. A cloud model may incur a cost before indexing."}</p>}
+          <div className={styles.actions}>{sourceMode === "text" && <Button onClick={() => void previewText()} loading={previewing} disabled={loadingSample || !pastedText.trim() || overlap >= chunkSize || (strategy === "semantic" && !embeddingKey)}>{cs ? "Ukázat chunky" : "Preview chunks"}</Button>}<Button onClick={() => void upload()} loading={uploading} disabled={loadingSample || (sourceMode === "file" ? !file : !pastedText.trim() || !textName.trim()) || !embeddingKey || overlap >= chunkSize}>{sourceMode === "text" ? (cs ? "Vložit a indexovat" : "Paste and index") : (cs ? "Nahrát a indexovat" : "Upload and index")}</Button></div>
+          {!embeddingModels.length && <p className={styles.hint}>{cs ? "Není dostupný embeddingový model. V Ollamě stáhněte např. all-minilm a obnovte nabídku modelů." : "No embedding model available. Pull e.g. all-minilm in Ollama and refresh the model list."}</p>}
+        </div></section>
+        <section className={styles.panel}><header><div><span className={styles.step}>02 / INDEX</span><h2>{cs ? "Zdroje a úryvky" : "Sources and chunks"} <InfoTip label={cs ? "Výběr dokumentů" : "Select documents"} helpKey="field.selectDocuments" context="field" /></h2></div></header><div className={styles.body}>
+          {documents.length ? <div className={styles.docList}>{documents.map((doc) => <div key={doc.id} className={styles.doc}><input type="checkbox" checked={selectedIds.includes(doc.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, doc.id] : current.filter((id) => id !== doc.id))} aria-label={`${cs ? "Vybrat" : "Select"} ${doc.name}`} /><FileText size={17} /><div><strong>{doc.name}</strong><small>{doc.chunk_count} {cs ? "úryvků" : "chunks"} · {doc.strategy} · {formatDate(doc.created_at, locale)}</small><small>{doc.embedding_model_key}</small></div><button type="button" onClick={() => void showChunks(doc.id)}>{cs ? "Náhled" : "Preview"}</button><button type="button" onClick={() => void remove(doc.id)} aria-label={`${cs ? "Smazat" : "Delete"} ${doc.name}`}><Trash2 size={15} /></button></div>)}</div> : loadingSample ? <div className={styles.empty} role="status"><LoaderCircle className={styles.spin} size={22} /><strong>{cs ? "Připravuji index z načteného textu…" : "Indexing the loaded text…"}</strong><p>{cs ? "Chunky se v tomto kroku objeví po dokončení." : "The chunks will appear here when indexing finishes."}</p></div> : pastedText.trim() && sourceMode === "text" ? <div className={styles.empty}><BookOpen size={22} /><strong>{cs ? "Text z kroku 1 ještě není indexovaný" : "The text in step 1 is not indexed yet"}</strong><p>{cs ? "Indexujte ho, aby se tady objevily chunky a šlo se na něj ptát." : "Index it to see its chunks here and ask questions about it."}</p><Button onClick={() => void upload()} loading={uploading} disabled={!embeddingKey || overlap >= chunkSize}>{cs ? "Indexovat text z kroku 1" : "Index text from step 1"}</Button></div> : <div className={styles.empty}><BookOpen size={22} /><strong>{cs ? "Zatím žádný dokument" : "No documents yet"}</strong><p>{cs ? "Vložte text nebo nahrajte první soubor." : "Paste text or upload your first file."}</p></div>}
+          {preview && <div ref={previewRef} className={styles.preview}><div className={styles.previewHeading}><strong>{preview.id ? (cs ? "Indexované chunky" : "Indexed chunks") : (cs ? "Náhled dělení před indexací" : "Chunk preview before indexing")}</strong><span>{preview.name} · {preview.chunks.length} {cs ? "chunků" : "chunks"}</span></div><p className={styles.previewExplanation}>{cs ? `Metoda ${preview.strategy}, cílová velikost ~${preview.chunkSize * 4} znaků, nastavený překryv ~${preview.overlap * 4} znaků. Čísla níže jsou skutečné pozice v textu.` : `Method ${preview.strategy}, target size ~${preview.chunkSize * 4} characters, configured overlap ~${preview.overlap * 4} characters. Positions below refer to the original text.`}</p>{!preview.id && <p className={styles.previewExplanation}>{cs ? "Tyto chunky zatím nejsou v indexu. Vyberte embeddingový model a klikněte na Vložit a indexovat, aby je šlo použít v otázce." : "These chunks are not indexed yet. Choose an embedding model and click Paste and index to use them in a question."}</p>}<div className={styles.chunkList}>{preview.chunks.map((chunk, index) => { const previous = preview.chunks[index - 1]; const shared = previous ? Math.max(0, previous.end - chunk.start) : 0; return <article key={chunk.id ?? `${chunk.start}-${chunk.end}-${index}`}><div><strong>#{index + 1}</strong><span>{chunk.page ? `${cs ? "str." : "p."} ${chunk.page} · ` : ""}{cs ? "znaky" : "chars"} {chunk.start}–{chunk.end} · {chunk.end - chunk.start} {cs ? "znaků" : "characters"}{shared > 0 ? ` · ${cs ? "překryv" : "overlap"} ${shared}` : ""}</span></div><p>{chunk.text}</p></article>; })}</div></div>}
+        </div></section>
       </div>
-
-      <div className="rag-results"><strong>{t("rag.pipelineResults")}</strong><ResultMetric label={t("rag.faithfulness")} helpKey="rag.faithfulness" value="0.92" percent={92} /><ResultMetric label={t("rag.contextPrecision")} value="0.88" percent={88} /><ResultMetric label={t("rag.relevance")} value="0.95" percent={95} /><div><MetricLabel label={t("rag.totalTime")} helpKey="metric.latency" /><strong className="mono">1.42 s</strong></div><div><MetricLabel label={t("rag.totalCost")} /><strong className="mono positive">{mode === "local" ? t("rag.localCost") : mode === "fixture" ? "$0.0041 fixture" : t("app.unavailable")}</strong></div></div>
-      <p className="method-note">{t("rag.lossy")}</p>
+      <div className={styles.right}>
+        <section className={styles.panel}><header><div><span className={styles.step}>03 / QUESTION</span><h2>{cs ? "Zeptejte se dokumentů" : "Ask your documents"}</h2></div></header><div className={styles.body}>
+          <label className={styles.field}><HelpLabel label={cs ? "Otázka" : "Question"} helpKey="field.ragQuestion" /><textarea rows={4} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={cs ? "Např. Jaké jsou podmínky vrácení?" : "E.g. What is the return policy?"} /></label>
+          <label className={styles.field}><HelpLabel label={cs ? "Generativní model" : "Generation model"} helpKey="prompt.model" /><select value={generationKey} onChange={(event) => setGenerationKey(event.target.value)}>{generationModels.map((model) => <option key={model.key} value={model.key}>{model.key}</option>)}</select></label>
+          <div className={styles.threeFields}><label className={styles.field}><HelpLabel label="Top K" helpKey="rag.topK" /><div className={styles.slider}><input type="range" min={1} max={10} value={topK} onChange={(event) => setTopK(Number(event.target.value))} /><strong>{topK}</strong></div></label><label className={styles.field}><HelpLabel label="Temperature" helpKey="prompt.temperature" /><div className={styles.slider}><input type="range" min={0} max={2} step={0.1} value={temperature} onChange={(event) => setTemperature(Number(event.target.value))} /><strong>{temperature.toFixed(1)}</strong></div></label><label className={styles.field}><HelpLabel label="Max tokens" helpKey="prompt.maxTokens" /><input type="number" min={1} max={8192} value={maxTokens} onChange={(event) => setMaxTokens(Number(event.target.value))} /></label></div>
+          <label className={styles.check}><input type="checkbox" checked={bm25} onChange={(event) => setBm25(event.target.checked)} /><HelpLabel label={cs ? "Přerovnat výsledky pomocí BM25" : "Rerank results with BM25"} helpKey="field.reranker" /></label>
+          <p className={styles.hint}>{cs ? "Nejprve se vyhledají relevantní úryvky. Ty pak dostane vybraný model jako podklady. Citace jsou odkazy na tyto úryvky." : "Relevant excerpts are retrieved first, then passed to the selected model. Citations link back to those exact excerpts."}</p>
+          <Button onClick={() => void ask()} loading={asking} disabled={!question.trim() || !generationKey || !matchingDocuments.length}><Search size={15} />{cs ? "Vyhledat a odpovědět" : "Retrieve and answer"}</Button>
+          {documents.length > 0 && !matchingDocuments.length && <p className={styles.hint}>{cs ? "Vybrané dokumenty používají jiný embeddingový model. Zvolte model použitý při nahrání." : "Selected documents use a different embedding model. Choose the model used during upload."}</p>}
+        </div></section>
+        <section className={styles.panel}><header><div><span className={styles.step}>04 / EVIDENCE</span><h2>{cs ? "Odpověď a důkazy" : "Answer and evidence"}</h2></div>{asking && <LoaderCircle className={styles.spin} size={18} />}</header><div className={styles.body}>
+          {answer ? <><div className={styles.answer}><RunStatus status="completed" /><AnswerReveal answer={answer.answer} locale={locale} initiallyOpen /><div className={styles.answerMeta}><span>{answer.latency_ms} ms · {answer.usage.input_tokens} / {answer.usage.output_tokens} tokens</span><Link href="/history">{cs ? "Zobrazit běh" : "View run"}<ArrowRight size={13} /></Link></div></div>
+            <p className={styles.citationNote}>{answer.citation_markers_valid ? (cs ? "Značky citací odkazují na nalezené úryvky. Pravdivost jednotlivých tvrzení ověřte ve zdrojích." : "Citation markers point to retrieved excerpts. Verify individual claims against the sources.") : (cs ? "Model nepoužil platné značky citací. Odpověď zkontrolujte proti úryvkům níže." : "The model did not use valid citation markers. Check its answer against the excerpts below.")}</p>
+            <div className={styles.sourceTabs}>{answer.sources.map((source) => <button type="button" key={source.chunk_id} aria-pressed={activeSource?.chunk_id === source.chunk_id} onClick={() => setSourceId(source.chunk_id)}>{source.marker} {source.document_name}</button>)}</div>
+            {activeSource && <article className={styles.source}><div><strong>{activeSource.document_name}</strong><span>{activeSource.page ? `${cs ? "str." : "p."} ${activeSource.page} · ` : ""}{cs ? "znaky" : "chars"} {activeSource.start}–{activeSource.end} · score {activeSource.score.toFixed(3)}</span></div><p>{activeSource.text}</p><small>chunk {activeSource.chunk_id}</small></article>}
+          </> : <div className={styles.empty}><Search size={23} /><strong>{cs ? "Zatím žádná odpověď" : "No answer yet"}</strong><p>{cs ? "Vyberte dokument, položte otázku a zkontrolujte odpověď proti úryvkům." : "Select a document, ask a question and inspect the answer beside its excerpts."}</p></div>}
+        </div></section>
+      </div>
     </div>
-  );
+  </div>;
 }
 
-function FieldSelect({ label, helpKey, value, children, onChange, disabled = false }: { label: string; helpKey?: string; value: string; children: React.ReactNode; onChange?: (value: string) => void; disabled?: boolean }) {
-  return <label className="field"><HelpLabel label={label} helpKey={helpKey} /><Select value={value} onChange={onChange} disabled={disabled} ariaLabel={label}>{children}</Select></label>;
-}
-
-function ChunkInspector({ chunk }: { chunk: (typeof ragChunks)[number] }) {
-  const { t } = useApp();
-  return <div className="inspector-content"><div className="source-meta"><FileText size={18} /><div><strong>{chunk.title}</strong><span className="mono">{chunk.source}</span></div><span className="mono">{t("common.providerScore")} {chunk.score.toFixed(3)}</span></div><span className="section-label">{t("rag.chunkContent")}</span><div className="source-code"><span className="line-numbers">1<br />2<br />3<br />4</span><p>{highlight(chunk.text, "within 30 days of delivery")}</p></div><span className="section-label">{t("rag.retrievalFinding")}</span><div className={chunk.relevant ? "finding supported" : "finding warning"}><Check size={15} /><span>{chunk.relevant ? t("rag.usefulEvidence") : t("rag.lowRelevance")}</span></div></div>;
-}
-
-function ClaimsInspector() {
-  const { t } = useApp();
-  return <div className="inspector-content"><div className="answer-box"><span className="section-label">{t("rag.generatedAnswer")}</span><p>{t("rag.answer")}</p></div><div className="claim-card"><span className="claim-status"><Check size={14} />{t("rag.supported")}</span><p>{t("rag.selectedClaim")}</p><strong>{t("rag.sourceSpan")}</strong><blockquote>“Footwear items may be returned within 30 days of delivery…”</blockquote><small>Evaluator: fixture-faithfulness-v1 · {t("labs.confidence")} 0.94</small></div></div>;
-}
-
-function ResultMetric({ label, helpKey, value, percent }: { label: string; helpKey?: string; value: string; percent: number }) {
-  return <div className="result-metric"><MetricLabel label={label} helpKey={helpKey} /><strong className="mono">{value}</strong><ProgressBar value={percent} tone="green" /></div>;
-}
-
-function highlight(text: string, needle: string) {
-  const index = text.toLowerCase().indexOf(needle.toLowerCase());
-  if (index < 0) return text;
-  return <>{text.slice(0, index)}<mark>{text.slice(index, index + needle.length)}</mark>{text.slice(index + needle.length)}</>;
+async function responseError(response: Response): Promise<string> {
+  try { const payload = await response.json() as { detail?: unknown }; if (typeof payload.detail === "string") return payload.detail; }
+  catch { /* The response may not contain JSON. */ }
+  return `HTTP ${response.status}`;
 }

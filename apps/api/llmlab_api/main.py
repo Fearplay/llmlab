@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
+from . import agent_api, game_api, lab_api, model_catalog, pricing, secret_settings, user_rag_api
 from .contracts import (
     EmbeddingRequest,
     EmbeddingResult,
@@ -22,16 +23,19 @@ from .contracts import (
     GenerationRequest,
     GenerationResult,
     RagRequest,
+    RagSearchRequest,
     RunCreate,
     RunStatus,
     RunView,
     TrainingRequest,
+    Usage,
 )
 from .database import SessionLocal, create_tables, get_db
 from .evaluators import evaluate
-from .fixture import rag_fixture, training_fixture
+from .fixture import training_fixture
 from .models import HumanReview, Run
 from .providers import embed, generate, provider_views
+from .rag_service import get_rag_service
 from .settings import Settings, get_settings
 from .state import can_transition
 from .training import run_local_training
@@ -41,6 +45,9 @@ from .worker import run_fixture
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_tables()
+    lab_api.resume_pending()
+    game_api.reconcile_interrupted_games()
+    agent_api.reconcile_interrupted_agent_runs()
     yield
 
 
@@ -52,6 +59,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(model_catalog.router)
+app.include_router(pricing.router)
+app.include_router(secret_settings.router)
+app.include_router(lab_api.router)
+app.include_router(game_api.router)
+app.include_router(user_rag_api.router)
+app.include_router(agent_api.router)
 
 
 @app.get("/health/live", tags=["health"])
@@ -72,9 +86,62 @@ def providers(settings: Settings = Depends(get_settings)) -> list[dict[str, Any]
 
 @app.post("/api/v1/generation", response_model=GenerationResult, tags=["providers"])
 async def generation(
-    request: GenerationRequest, settings: Settings = Depends(get_settings)
+    request: GenerationRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> GenerationResult:
-    return await generate(request, settings)
+    spec = request.model_dump(mode="json")
+    run_id = f"run_{uuid.uuid4().hex[:12]}"
+    row = Run(
+        id=run_id,
+        kind="prompt",
+        name="Prompt a tokeny",
+        status="running",
+        mode=request.mode.value,
+        provider=request.provider,
+        model=request.model,
+        dataset_version="none",
+        prompt_version="inline",
+        evaluator_versions=[],
+        config_hash=hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest(),
+        git_sha=settings.git_sha,
+        progress=0,
+        usage={},
+        spec=spec,
+        results=[],
+        metrics={},
+        trace=[],
+    )
+    db.add(row)
+    db.commit()
+    try:
+        result = await generate(request, settings)
+    except Exception as error:
+        row.status = "failed"
+        row.error = str(error)[:500]
+        row.completed_at = datetime.now(UTC)
+        db.commit()
+        raise
+    usage = result.usage.model_dump()
+    model_key = f"{request.provider}:{request.model}"
+    row.results = [
+        {
+            "model_key": model_key,
+            "case_id": "prompt-1",
+            "status": "completed",
+            "output": result.text,
+            "latency_ms": result.latency_ms,
+            "usage": usage,
+            "cost": pricing.estimate_usage_cost(model_key, usage),
+            "applied_settings": result.applied_settings,
+        }
+    ]
+    row.usage = usage
+    row.status = "completed"
+    row.progress = 100
+    row.completed_at = datetime.now(UTC)
+    db.commit()
+    return result.model_copy(update={"run_id": run_id})
 
 
 @app.post("/api/v1/embeddings", response_model=EmbeddingResult, tags=["providers"])
@@ -89,14 +156,43 @@ def evaluations(request: EvaluationRequest) -> EvaluationResult:
     return evaluate(request)
 
 
+@app.get("/api/v1/rag/status", tags=["rag"])
+def rag_status(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    return get_rag_service(settings).status()
+
+
+@app.get("/api/v1/rag/documents", tags=["rag"])
+def rag_documents(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    status = get_rag_service(settings).status()
+    return {
+        "corpus_id": status["corpus_id"],
+        "indexed_at": status["indexed_at"],
+        "fingerprint": status["fingerprint"],
+        "embedding_model": status["embedding_model"],
+        "documents": status["documents"],
+    }
+
+
+@app.post("/api/v1/rag/reindex", tags=["rag"])
+def rag_reindex(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    return get_rag_service(settings).rebuild()
+
+
+@app.post("/api/v1/rag/search", tags=["rag"])
+def rag_search(
+    request: RagSearchRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    return get_rag_service(settings).search(request.question, request.top_k)
+
+
 @app.post("/api/v1/rag/run", tags=["rag"])
-def rag_run(request: RagRequest) -> dict[str, Any]:
-    if request.mode is not ExecutionMode.FIXTURE:
-        raise HTTPException(
-            501,
-            "Live RAG requires a configured vector collection; no fixture is presented as live.",
-        )
-    return rag_fixture(request.question, request.top_k)
+async def rag_run(
+    request: RagRequest, settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    try:
+        return await get_rag_service(settings).run(request)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/v1/training/run", tags=["training"])
@@ -199,16 +295,37 @@ def run_events(run_id: str, db: Session = Depends(get_db)) -> EventSourceRespons
 def create_review(payload: dict[str, str], db: Session = Depends(get_db)) -> dict[str, Any]:
     if payload.get("verdict") not in {"good", "bad"}:
         raise HTTPException(422, "verdict must be good or bad")
+    run_id = payload.get("run_id", "")
+    case_id = payload.get("case_id", "")
+    run = db.get(Run, run_id)
+    if run is None or not case_id.isdecimal() or int(case_id) >= len(run.results or []):
+        raise HTTPException(404, "Saved run result not found")
     row = HumanReview(
         id=f"review_{uuid.uuid4().hex[:10]}",
-        run_id=payload.get("run_id", "run_0191"),
-        case_id=payload.get("case_id", ""),
+        run_id=run_id,
+        case_id=case_id,
         verdict=payload["verdict"],
         comment=payload.get("comment", ""),
     )
     db.add(row)
     db.commit()
     return {"id": row.id, "created_at": row.created_at, "saved": True}
+
+
+@app.get("/api/v1/reviews", tags=["reviews"])
+def list_reviews(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    rows = db.scalars(select(HumanReview).order_by(HumanReview.created_at.desc()).limit(500))
+    return [
+        {
+            "id": row.id,
+            "run_id": row.run_id,
+            "case_id": row.case_id,
+            "verdict": row.verdict,
+            "comment": row.comment,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
 
 
 def _get_run(db: Session, run_id: str) -> Run:
@@ -232,7 +349,7 @@ def _run_view(row: Run) -> RunView:
         config_hash=row.config_hash,
         git_sha=row.git_sha,
         progress=row.progress,
-        usage=row.usage or {},
+        usage=Usage.model_validate(row.usage or {}),
         created_at=row.created_at or datetime.now(UTC),
         completed_at=row.completed_at,
     )

@@ -1,198 +1,87 @@
 # LLMLab
 
-**Self-hostovaný nástroj pro reprodukovatelnou evaluaci promptů, modelů, RAG pipeline a agentů.**
+Lokální laboratoř pro pochopení a porovnávání jazykových modelů. Píšete skutečným modelům, ukládáte běhy a můžete zkoumat, jak se mění odpovědi při jiném promptu, nastavení, zdrojích nebo agentovi. Na první obrazovce nejsou žádné předstírané výsledky; příklad si načtete sami.
 
-[English version](README.md) · [Architektonické rozhodnutí](docs/adr/0001-fixture-first.md) · [Poznámky ke zdrojům](docs/sources.md)
+[English](README.md)
 
-![Přehled projektu LLMLab](design/mockups/01-project-dashboard.png)
+## Náhled aplikace
 
-LLMLab pracuje se změnami AI systému jako se změnami softwaru: verzuj vstupy, spusť řízený experiment, prohlédni jednotlivá selhání a zachovej přesný původ každého výsledku. Deterministický režim Ukázka zpřístupňuje celý produkt bez API klíčů a placených požadavků.
+Snímky vznikly v čistém profilu prohlížeče s ukázkovým katalogem lokálních modelů a prázdnými seznamy běhů i dokumentů. Neobsahují osobní běhy ani přístupové údaje.
 
-## Co LLMLab umí
+**Přehled:** vstup do laboratoří, uložené běhy, spotřeba tokenů a odhad ceny API.
 
-- Porovnávat varianty promptů a modelů nad stejným neměnným datasetem.
-- Zobrazovat kvalitu, úspěšnost, latenci, cenu, regrese a párové případy.
-- Kontrolovat retrieval, reranking, důkazy, tvrzení a grounding RAG pipeline.
-- Sledovat volání nástrojů agenta bez odhalování soukromého chain-of-thought.
-- Testovat prompt injection a workflow lidské kontroly.
-- Spouštět omezený lokální trénink a sledovat loss, gradienty, validaci a overfitting.
-- Přepínat mezi režimy Ukázka, lokálním Ollama a nakonfigurovanými cloudovými poskytovateli.
-- Používat celé rozhraní česky nebo anglicky, ve světlém i tmavém tématu.
+![Český přehled LLMLab s prázdnou historií běhů](docs/screenshots/overview-cs.png)
 
-## Stav projektu
+**RAG pipeline:** příprava dokumentu, nastavení dělení a modelů, odpověď vedle nalezených podkladů.
 
-LLMLab je produkčně orientovaná referenční implementace, ne hostovaná služba. Repozitář obsahuje UI, API kontrakty, perzistenci, frontu úloh, testy, Docker služby a deterministické ukázkové workflow.
+![Česká RAG pipeline LLMLab bez nahraných dokumentů](docs/screenshots/rag-cs.png)
 
-| Funkce | Stav |
-| --- | --- |
-| Ukázkové evaluační workflow | Kompletní a deterministické |
-| Lokální generování přes Ollama | Dostupné po konfiguraci |
-| OpenAI, Anthropic, Gemini a kompatibilní API | Dostupné po nastavení serverových klíčů |
-| PostgreSQL a Redis/Celery | Součást Docker Compose |
-| Živý RAG nad vlastní vektorovou kolekcí | Vyžaduje integraci |
-| Dávkové experimenty s živými poskytovateli | Vyžadují integraci |
-| Autentizace, autorizace, rate limiting a zálohy | Odpovědnost nasazení |
+## Spuštění bez Dockeru
 
-Ukázkové hodnoty jsou vždy označené. LLMLab nevydává předvyplněný výsledek za živou odpověď modelu.
+Potřebujete **Python 3.12+**, **Node.js 22+**, `pnpm`, `uv` a spuštěnou [Ollamu](https://ollama.com/). Ollama je samostatný server. LLMLab ji nespouští a nestahuje modely automaticky.
 
-## Rychlé spuštění přes Docker
+Pro první lokální pokus stáhněte jeden generativní a jeden embeddingový model:
 
-Požadavek: Docker Engine s Docker Compose.
+```powershell
+ollama pull qwen3.5:9b
+ollama pull all-minilm
+python start.py
+```
 
-~~~powershell
-Copy-Item .env.example .env
-docker compose up --build
-~~~
+Otevřete **http://127.0.0.1:3000**. API dokumentace je na **http://127.0.0.1:8000/docs**. Příkaz nainstaluje zamknuté projektové závislosti, spustí FastAPI a Next.js a uloží data do `.local-data/lab.sqlite3`. Ukončíte jej `Ctrl+C`. Při nedostupné Ollamě aplikace ukáže její skutečný stav a nebude vymýšlet odpověď.
 
-Na Linuxu nebo macOS:
+Vpravo nahoře vyberte některý z dostupných modelů Ollamy. V části **Prompt a tokeny** napište vlastní dotaz a klikněte na **Spustit**. Model, vstup, nastavení, odpověď, čas a nahlášené tokeny najdete v **Historii běhů**.
 
-~~~bash
-cp .env.example .env
-docker compose up --build
-~~~
+## Sekce aplikace
 
-Otevři [http://localhost:3000](http://localhost:3000). API klíč není potřeba.
+V postranním menu jsou položky v tomto pořadí. **AI laboratoř** je rozbalovací skupina; **Nastavení** a **Dokumentace** jsou v patičce menu.
 
-- Webové UI: http://localhost:3000
-- API a OpenAPI: http://localhost:8000 a http://localhost:8000/docs
-- PostgreSQL s pgvector: localhost:5432
-- Redis: localhost:6379
-
-Zastavení:
-
-~~~bash
-docker compose down
-~~~
-
-Přidej **--volumes** pouze tehdy, když chceš záměrně odstranit lokální data PostgreSQL a Redis.
-
-## Režimy spuštění
-
-| Režim | Účel | Síť a cena |
+| Sekce | Adresa | Co v ní najdete |
 | --- | --- | --- |
-| **Ukázka** | Reprodukovatelné procházení a testy | Bez klíče a placeného požadavku |
-| **Lokálně** | Generování a embeddingy přes Ollama | Zůstává na nakonfigurovaném Ollama hostu |
-| **Cloud** | OpenAI, Anthropic, Gemini nebo kompatibilní endpoint | Spouští se pouze po explicitní akci |
+| Přehled | `/` | Vstup do promptu, arény, RAG a Flappy AI; počty skutečných běhů, tokeny, odhad ceny a poslední uložené běhy. |
+| Aréna modelů | `/arena` | Jeden prompt nebo dataset nad několika dostupnými modely; srovnání odpovědí, času, tokenů a odhadované ceny. |
+| Datasety | `/datasets` | Ruční tvorba i import případů z CSV, JSON a JSONL, volba kontrol a spuštění vyhodnocení. |
+| Prompty | `/prompts` | Ukládání verzí promptů a prohlížení rozdílů mezi nimi. |
+| Poskytovatelé | `/providers` | Přehled dostupnosti generativních a embeddingových poskytovatelů a test připojení. |
+| Evaluátory | `/evaluators` | Vysvětlení metod skórování a poslední evaluace skutečných odpovědí. |
+| AI laboratoř → Prompt a tokeny | `/ai-lab/prompt-tokens` | Spouštění promptů se systémovou instrukcí, teplotou, top-p, limitem výstupu, stop sekvencí a podporovaným JSON schématem; odhad i skutečná spotřeba tokenů. |
+| AI laboratoř → Embeddingy | `/ai-lab/embeddings` | Převod dvou textů dostupným embeddingovým modelem na vektory a porovnání kosinové podobnosti. |
+| AI laboratoř → RAG pipeline | `/ai-lab/rag` | Vložení textu nebo PDF, DOCX, TXT a Markdown souboru; kontrola chunků, indexace, nalezených úryvků, odpovědi a citací. Samotná citace nedokazuje správnost tvrzení. |
+| AI laboratoř → Bezpečnost a injection | `/ai-lab/safety` | Pokusy s přímým i dokumentovým podvrženým pokynem, falešným klíčem a simulovanými operacemi; srovnání původní a filtrované odpovědi. |
+| AI laboratoř → Agenti | `/ai-lab/agents` | Úkol pro agenta s omezenými simulovanými soubory, databází a kalkulačkou; viditelná stopa kroků a cena. |
+| AI laboratoř → Flappy AI | `/ai-lab/flappy` | Vlastní hra i náhodný, pravidlový, LLM a trénovaný DQN agent na tratích se seedem; žebříček, checkpointy, rozhodnutí a replay. |
+| Kontroly | `/reviews` | Ruční označení uložených odpovědí jako použitelných či nepoužitelných a uložení poznámky k běhu. |
+| Historie běhů | `/history` | Uložené běhy, podrobné výsledky a vstup do jejich porovnání. |
+| Cena a provoz | `/operations` | Běhy po dnech, tokeny podle modelů, stav poskytovatelů, ceník a známé odhady ceny API. Neznámá cena zůstává neznámá. |
+| Nastavení | `/settings` | Místní preference a správa připojení poskytovatelů. |
+| Dokumentace | `/docs` | Devět krátkých lekcí s odkazy do interaktivních laboratoří. |
 
-Každý výsledek ukládá režim, poskytovatele, model, konfiguraci, dostupné využití tokenů a čas. Klíče zůstávají v API službě a nikdy nesmí mít prefix **NEXT_PUBLIC_**.
+Porovnání běhů má vlastní adresu `/experiments/compare`. Starší adresy `/experiments`, `/knowledge-base`, `/ai-lab/grounding` a `/ai-lab/training` přesměrovávají do současných sekcí.
 
-## Architektura
+## Cloudové modely
 
-~~~text
-Prohlížeč
-  |
-  +-- Next.js 16 / React 19
-  |       |
-  |       +-- proxy /api/v1
-  |
-  +-- FastAPI
-          +-- PostgreSQL + pgvector
-          +-- Redis
-          +-- Celery worker
-          +-- adaptéry poskytovatelů
-          +-- evaluátory a RAG kontrakty
-          +-- Server-Sent Events pro průběh běhu
-~~~
+Klíče OpenAI, Anthropic a Gemini můžete zadat v **Nastavení → Cloudové API klíče**, nebo do serverového `.env` jako `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`. Klíč se z API neposílá zpět do prohlížeče. Lokální Ollama API klíč nepotřebuje. Na stránce **Poskytovatelé** uvidíte aktuální dostupnost; seznam Ollama modelů vychází z `GET /api/tags`, nikoli z pevného výčtu v aplikaci.
 
-Web při nedostupném API použije vestavěná ukázková data. Docker Compose zpřístupní kompletní cestu s perzistencí, frontou a streamováním událostí.
+Pro server kompatibilní s API OpenAI nastavte v serverovém `.env` `OPENAI_COMPATIBLE_BASE_URL`. Vyžaduje-li server ověření, přidejte `OPENAI_COMPATIBLE_API_KEY` v Nastavení nebo v `.env`.
 
-## Struktura repozitáře
+Odhady cen používají pouze ověřené běžné textové API sazby. Může se lišit region, délka kontextu, cache, nástroje, multimédia a skutečná faktura. Aktuální zdroje ceníku: [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), [Gemini](https://ai.google.dev/gemini-api/docs/pricing). Model bez ověřené sazby lze používat, ale jeho cena se nezapočte jako nula.
 
-~~~text
-apps/
-  web/          Next.js UI a Playwright testy
-  api/          FastAPI, migrace, worker a pytest testy
-packages/
-  cli/          Python klient pro API
-config/         Verzovaná metadata cen modelů
-design/         Vizuální směr, mockupy a prompty obrázků
-docs/           Architektonická rozhodnutí a zdroje
-examples/       Reprodukovatelné definice experimentů
-~~~
+## Vývoj a ověření
 
-## Lokální vývoj
-
-Požadavky:
-
-- Node.js 22 nebo novější
-- pnpm 11.19
-- Python 3.12 nebo novější
-- [uv](https://docs.astral.sh/uv/)
-- PostgreSQL a Redis, případně Docker
-
-Spusť web:
-
-~~~bash
-pnpm install
-pnpm dev
-~~~
-
-V dalším terminálu spusť API:
-
-~~~bash
-cd apps/api
-uv sync --extra training --extra dev
-uv run uvicorn llmlab_api.main:app --reload
-~~~
-
-Výchozí adresy jsou http://localhost:3000 pro UI a http://localhost:8000 pro API.
-
-## Konfigurace
-
-Zkopíruj **.env.example** do **.env**.
-
-| Proměnná | Účel |
-| --- | --- |
-| DATABASE_URL | Připojení PostgreSQL pro API |
-| REDIS_URL | Redis broker |
-| OPENAI_API_KEY | Volitelný přístup k OpenAI |
-| ANTHROPIC_API_KEY | Volitelný přístup k Anthropic |
-| GEMINI_API_KEY | Volitelný přístup ke Gemini |
-| OPENAI_COMPATIBLE_BASE_URL | Volitelné kompatibilní API |
-| OPENAI_COMPATIBLE_API_KEY | Klíč kompatibilního API |
-| OLLAMA_BASE_URL | Lokální Ollama endpoint |
-| GIT_SHA | Revize ukládaná do metadat reprodukovatelnosti |
-
-Nikdy necommituj **.env**. Verzovaný **.env.example** obsahuje pouze bezpečné zástupné hodnoty a lokální výchozí nastavení.
-
-## Ověření
-
-Web:
-
-~~~bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:e2e
+```powershell
+pnpm --dir apps/web lint
+pnpm --dir apps/web typecheck
+pnpm --dir apps/web test
 pnpm build
-~~~
+pnpm --dir apps/web exec playwright install chromium
+pnpm test:e2e
+uv run --project apps/api --extra dev pytest -q apps/api/tests
+```
 
-API:
+[CI](.github/workflows/ci.yml) při každém pushi a pull requestu spouští lint, kontrolu typů, unit testy, produkční build, Playwright na desktopu, tabletu a mobilu a backendové testy. Test navigace hlídá skupiny, pořadí, názvy, aktivní sekci a dostupnost každé odkazované stránky. Playwright v CI používá produkční build.
 
-~~~bash
-cd apps/api
-uv run ruff check .
-uv run mypy llmlab_api
-uv run pytest
-~~~
-
-Výchozí testy neprovádějí placené požadavky. Testy živých poskytovatelů musí zůstat volitelné.
-
-## Kontrolní seznam pro produkci
-
-Před zpřístupněním mimo důvěryhodnou lokální síť:
-
-- Změň lokální databázová hesla.
-- Přidej TLS a autentizovanou reverzní proxy.
-- Doplň autentizaci, autorizaci a izolaci tenantů.
-- Omez CORS na nasazené domény.
-- Ulož klíče do správce tajemství a pravidelně je rotuj.
-- Nastav zálohy databáze, retenci a test obnovy.
-- Přidej rate limiting, limity velikosti požadavků, auditní log a alerty.
-- Připni a skenuj obrazy kontejnerů i závislosti.
-- Urči retenci promptů, dokumentů, výstupů modelů a lidských kontrol.
-- Ověř limity evaluátorů na vlastních datech před použitím jako release gate.
+Frontend je Next.js 16/React 19, backend FastAPI/SQLAlchemy. Lokální spuštění používá SQLite; Docker Compose zůstává k dispozici pro PostgreSQL a Redis. `start.py` dává při spuštění přednost místní SQLite databázi, i když `.env` obsahuje Docker adresy. Uživatelské dokumenty, epizody a běhy se automaticky nenačítají z jiného projektu.
 
 ## Licence
 
-Projekt je dostupný pod [MIT licencí](LICENSE).
+Vlastní kód LLMLab je pod [licencí MIT](LICENSE). Knihovny třetích stran a fonty IBM Plex mají vlastní podmínky; jejich přehled je v [oznámeních o cizích knihovnách](THIRD_PARTY_NOTICES.md) a úplné texty v souborech pro [web](THIRD_PARTY_NODE_NOTICES.txt) a [API](THIRD_PARTY_PYTHON_NOTICES.txt). Docker image vytváří oznámení z balíčků pro svou konkrétní platformu.

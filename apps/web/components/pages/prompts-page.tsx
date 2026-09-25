@@ -3,10 +3,8 @@
 import { Braces, Check, FileText, GitCompareArrows, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { Button, Notice, PageHeader, Panel, Select } from "@/components/ui";
+import { Button, InfoTip, Notice, PageHeader, Panel, Select } from "@/components/ui";
 
-const currentPrompt = `You are a customer support assistant.\n\nAnswer using only the supplied policy context. Cite the policy section after each factual claim. If the answer cannot be determined, say so explicitly.\n\nQUESTION\n{{question}}\n\nCONTEXT\n{{context}}`;
-const baselinePrompt = `You are a customer support assistant.\n\nAnswer the customer question.\n\nQUESTION\n{{question}}\n\nCONTEXT\n{{context}}`;
 const storageKey = "llmlab.promptVersions";
 
 interface PromptVersion {
@@ -20,9 +18,9 @@ function meaningfulLines(value: string) {
 
 export function PromptsPage() {
   const { t } = useApp();
-  const [text, setText] = useState(currentPrompt);
+  const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
-  const [version, setVersion] = useState("v18");
+  const [version, setVersion] = useState("");
   const [customVersions, setCustomVersions] = useState<PromptVersion[]>([]);
 
   useEffect(() => {
@@ -36,24 +34,19 @@ export function PromptsPage() {
     });
   }, []);
 
-  const versions = useMemo(() => [
-    ...customVersions,
-    { id: "v18", text: currentPrompt },
-    { id: "v17", text: baselinePrompt },
-  ], [customVersions]);
-
   const variables = useMemo(() => Array.from(new Set(Array.from(text.matchAll(/{{\s*([\w.-]+)\s*}}/g), (match) => match[1]))), [text]);
   const diff = useMemo(() => {
-    const base = meaningfulLines(baselinePrompt);
+    const base = meaningfulLines(customVersions.find((item) => item.id === version)?.text ?? "");
     const active = meaningfulLines(text);
     return {
       removed: base.filter((line) => !active.includes(line)),
       added: active.filter((line) => !base.includes(line)),
     };
-  }, [text]);
+  }, [text, version, customVersions]);
 
   const changeVersion = (next: string) => {
-    const selected = versions.find((item) => item.id === next);
+    if (!next) { setVersion(""); setText(""); setSaved(false); return; }
+    const selected = customVersions.find((item) => item.id === next);
     if (!selected) return;
     setVersion(next);
     setText(selected.text);
@@ -61,7 +54,8 @@ export function PromptsPage() {
   };
 
   const saveVersion = () => {
-    const nextNumber = Math.max(18, ...customVersions.map((item) => Number(item.id.slice(1)) || 0)) + 1;
+    if (!text.trim()) return;
+    const nextNumber = Math.max(0, ...customVersions.map((item) => Number(item.id.slice(1)) || 0)) + 1;
     const nextVersion = { id: `v${nextNumber}`, text };
     const nextVersions = [nextVersion, ...customVersions];
     setCustomVersions(nextVersions);
@@ -73,7 +67,7 @@ export function PromptsPage() {
   const variableDescription = (name: string) => name === "question" ? t("prompts.userInput") : name === "context" ? t("prompts.retrievedEvidence") : t("prompts.customVariable");
 
   return <>
-    <PageHeader title={t("prompts.title")} description={t("prompts.subtitle")} actions={<Button onClick={saveVersion}><Save size={15} />{t("prompts.saveVersion")}</Button>} />
+    <PageHeader title={t("prompts.title")} description={t("prompts.subtitle")} actions={<Button onClick={saveVersion} disabled={!text.trim()}><Save size={15} />{t("prompts.saveVersion")}</Button>} />
     <Notice tone="info" title={t("prompts.versioningTitle")}>{`${t("prompts.versioningText")} ${t("prompts.storedLocally")}`}</Notice>
     <div className="prompt-guide" aria-label={t("prompts.title")}>
       <div><FileText size={16} /><span><strong>{t("prompts.guideInstruction")}</strong>{t("prompts.guideInstructionText")}</span></div>
@@ -82,12 +76,11 @@ export function PromptsPage() {
     </div>
     {saved && <div className="success-banner"><Check size={16} />{t("prompts.saved")}</div>}
     <div className="prompt-layout">
-      <Panel title={t("prompts.systemPrompt")} aside={<Select value={version} onChange={changeVersion} ariaLabel={t("prompts.version")}>
+      <Panel title={t("prompts.systemPrompt")} aside={<div className="control-with-help"><Select value={version} onChange={changeVersion} ariaLabel={t("prompts.version")}>
+        <option value="">{t("prompts.newPrompt")}</option>
         {customVersions.map((item) => <option key={item.id} value={item.id}>{item.id} · {t("common.active")}</option>)}
-        <option value="v18">v18 · {t("common.active")}</option>
-        <option value="v17">v17 · {t("common.baseline")}</option>
-      </Select>}>
-        <textarea className="prompt-editor mono" value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} spellCheck={false} />
+      </Select><InfoTip label={t("prompts.version")} helpKey="field.promptVersion" context="field" /></div>}>
+        <textarea className="prompt-editor mono" value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} placeholder={t("prompts.placeholder")} spellCheck={false} />
         <div className="editor-footer"><span>{text.length} {t("common.characters")}</span><span>~{Math.ceil(text.length / 4)} {t("common.estimatedTokens")}</span></div>
       </Panel>
       <div className="prompt-side">

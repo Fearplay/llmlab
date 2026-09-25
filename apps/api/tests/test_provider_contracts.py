@@ -1,10 +1,12 @@
+import json
+
 import httpx
 import pytest
 import respx
 from fastapi import HTTPException
 
-from llmlab_api.contracts import ExecutionMode, GenerationRequest
-from llmlab_api.providers import generate, provider_views
+from llmlab_api.contracts import EmbeddingRequest, ExecutionMode, GenerationRequest
+from llmlab_api.providers import embed, generate, provider_views
 from llmlab_api.settings import Settings
 
 
@@ -81,13 +83,13 @@ async def test_gemini_generate_content_contract() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_ollama_openai_compatibility_contract() -> None:
-    respx.post("http://ollama.test/v1/chat/completions").mock(
+async def test_ollama_native_contract() -> None:
+    route = respx.post("http://ollama.test/api/chat").mock(
         return_value=httpx.Response(
             200,
             json={
-                "choices": [{"message": {"content": "local ok"}}],
-                "usage": {"prompt_tokens": 4, "completion_tokens": 2},
+                "message": {"content": "local ok"},
+                "prompt_eval_count": 4, "eval_count": 2,
             },
         )
     )
@@ -96,9 +98,32 @@ async def test_ollama_openai_compatibility_contract() -> None:
     )
     assert result.text == "local ok"
     assert result.mode is ExecutionMode.LOCAL
+    assert result.usage.input_tokens == 4
+    assert result.usage.cost_usd == 0
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["think"] is False
+    assert payload["options"]["num_predict"] == 512
 
 
-def test_capability_matrix_does_not_invent_anthropic_embeddings() -> None:
+@pytest.mark.asyncio
+@respx.mock
+async def test_ollama_native_embeddings() -> None:
+    respx.post("http://ollama.test/api/embed").mock(return_value=httpx.Response(
+        200, json={"embeddings": [[0.1, 0.2]], "prompt_eval_count": 3}
+    ))
+    result = await embed(
+        EmbeddingRequest(mode=ExecutionMode.LOCAL, provider="ollama", model="embed:1",
+                         inputs=["hello"]),
+        Settings(ollama_base_url="http://ollama.test/v1"),
+    )
+    assert result.dimensions == 2
+    assert result.usage.input_tokens == 3
+
+
+def test_capability_matrix_does_not_invent_anthropic_embeddings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("llmlab_api.secret_settings._keyring", lambda: None)
     records = {record.id: record for record in provider_views(Settings(openai_api_key=""))}
     assert records["anthropic"].capabilities.embeddings is False
     assert records["openai"].configured is False

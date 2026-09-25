@@ -1,236 +1,85 @@
 # LLMLab
 
-**A self-hosted workbench for evaluating prompts, models, RAG pipelines, and agents with reproducible evidence.**
+A local workbench for learning how language models behave, comparing real responses, and inspecting the evidence behind a run. The app starts empty: examples appear only when you explicitly load them.
 
-[Česká verze](README.cs.md) · [Architecture decision](docs/adr/0001-fixture-first.md) · [Source notes](docs/sources.md)
+[Česká verze](README.cs.md)
 
-![LLMLab project dashboard](design/mockups/01-project-dashboard.png)
+## Preview
 
-LLMLab treats AI-system changes like software changes: version the inputs, run a controlled experiment, inspect individual failures, and keep the exact provenance of every result. A deterministic fixture mode makes the full product explorable without API keys or paid requests.
+These screenshots use a clean browser profile, an illustrative local model catalog, and empty run and document lists. They contain no personal runs or credentials.
 
-## Why LLMLab
+**Overview:** start a lab and inspect saved runs, token usage, and estimated API cost.
 
-- Compare prompt and model variants on the same immutable dataset.
-- Inspect quality, pass rate, latency, cost, regressions, and paired cases.
-- Trace RAG retrieval, reranking, evidence, claims, and grounding findings.
-- Exercise agent tool calls without exposing private chain-of-thought.
-- Test prompt injection boundaries and human-review workflows.
-- Run bounded local training and observe loss, gradients, validation, and overfitting.
-- Switch between deterministic fixture, local Ollama, and configured cloud providers.
-- Use the complete interface in English or Czech, with light and dark themes.
+![LLMLab overview in English with an empty run history](docs/screenshots/overview-en.png)
 
-## Product status
+**RAG pipeline:** prepare a document, choose chunking and models, then inspect the answer beside its evidence.
 
-LLMLab is a production-oriented reference implementation, not a hosted service. The repository includes a complete UI, API contracts, persistence, queueing, tests, Docker services, and deterministic sample flows.
+![LLMLab RAG pipeline in English with no uploaded documents](docs/screenshots/rag-en.png)
 
-| Capability | Status |
-| --- | --- |
-| Fixture evaluation flows | Complete and deterministic |
-| Local Ollama generation | Available after configuration |
-| OpenAI, Anthropic, Gemini, compatible APIs | Available after server-side key configuration |
-| PostgreSQL persistence and Redis/Celery queue | Included in Docker Compose |
-| Live RAG over a custom vector collection | Requires integration |
-| Queued live-provider experiment batches | Requires integration |
-| Authentication, authorization, rate limits, backups | Deployment responsibility |
+## Start locally
 
-Fixture values are always labeled. LLMLab never presents a seeded result as a live provider response.
+Install Python 3.12+, Node.js 22+, `pnpm`, `uv`, and [Ollama](https://ollama.com/). Ollama runs separately; LLMLab discovers the models you have installed.
 
-## Quick start with Docker
+```powershell
+ollama pull qwen3.5:9b
+ollama pull all-minilm
+python start.py
+```
 
-Requirements: Docker Engine with Docker Compose.
+Open **http://127.0.0.1:3000**. The API reference is at **http://127.0.0.1:8000/docs**. The start command installs the locked dependencies, launches the API and web app, and stores local data in `.local-data/lab.sqlite3`. Stop it with `Ctrl+C`.
 
-~~~bash
-cp .env.example .env
-docker compose up --build
-~~~
+Pick an available model at the top right, then try **Prompts & tokens**. Your input, model settings, response, timing, and reported token usage are saved under **Run history**.
 
-On PowerShell:
+## Sections
 
-~~~powershell
-Copy-Item .env.example .env
-docker compose up --build
-~~~
+The sidebar keeps these destinations in this order. **AI Lab** is an expandable group; **Settings** and **Documentation** sit in the footer.
 
-Open [http://localhost:3000](http://localhost:3000). No provider key is required.
-
-Services:
-
-- Web UI: http://localhost:3000
-- API and OpenAPI: http://localhost:8000 and http://localhost:8000/docs
-- PostgreSQL with pgvector: localhost:5432
-- Redis: localhost:6379
-
-Stop the stack:
-
-~~~bash
-docker compose down
-~~~
-
-Add **--volumes** only when you intentionally want to remove local PostgreSQL and Redis data.
-
-## Execution modes
-
-| Mode | Purpose | Network and cost |
+| Section | Route | What it does |
 | --- | --- | --- |
-| **Fixture** | Reproducible walkthroughs and tests | No provider key, no paid request |
-| **Local** | Generation and embeddings through Ollama | Stays on the configured Ollama host |
-| **Cloud** | OpenAI, Anthropic, Gemini, or compatible endpoints | Runs only after an explicit user action |
+| Overview | `/` | Start from a prompt, arena, RAG, or Flappy AI; inspect real run counts, token usage, estimated cost, and recent saved runs. |
+| Model arena | `/arena` | Send one prompt or dataset to several available models; compare answers, latency, token usage, and estimated cost. |
+| Datasets | `/datasets` | Create and import CSV, JSON, or JSONL test cases, choose evaluation checks, and run them against a model. |
+| Prompts | `/prompts` | Save and compare prompt versions and inspect differences between them. |
+| Providers | `/providers` | See available generation and embedding providers and test their connections. |
+| Evaluators | `/evaluators` | Learn the scoring methods and inspect the latest evaluation from real model answers. |
+| AI Lab → Prompt & Tokens | `/ai-lab/prompt-tokens` | Run prompts with system instructions, temperature, top-p, output limits, stop sequences, and supported JSON schemas; inspect token estimates and actual usage. |
+| AI Lab → Embeddings | `/ai-lab/embeddings` | Compare the vectors for two texts using an available embedding model and inspect cosine similarity. |
+| AI Lab → RAG Pipeline | `/ai-lab/rag` | Paste text or upload PDF, DOCX, TXT, or Markdown; inspect chunking, indexing, retrieval, answer excerpts, and citations. Citations alone do not establish factual support. |
+| AI Lab → Safety & Injection | `/ai-lab/safety` | Try direct and document-borne prompt injections with a fake key and simulated operations; compare raw and filtered output. |
+| AI Lab → Agents | `/ai-lab/agents` | Give an agent a task and inspect bounded calls to simulated files, a simulated database, and a calculator, plus its trace and cost. |
+| AI Lab → Flappy AI | `/ai-lab/flappy` | Play or run random, rule, LLM, and trained DQN agents on seeded courses; inspect leaderboards, checkpoints, decisions, and replays. |
+| Reviews | `/reviews` | Mark saved model answers useful or not useful and store notes alongside the run. |
+| Run history | `/history` | Browse saved runs and open comparisons and detailed results. |
+| Cost & operations | `/operations` | Inspect daily runs, model token totals, provider status, price catalog, and known API cost estimates. Unknown prices remain unknown. |
+| Settings | `/settings` | Change local preferences and manage provider connections. |
+| Documentation | `/docs` | Follow nine short lessons that link to the interactive labs. |
 
-Every result records its mode, provider, model, configuration, token usage when available, and timing. Provider keys stay in the API service and must never use the **NEXT_PUBLIC_** prefix.
+The run comparison has its own route at `/experiments/compare`. Older links to `/experiments`, `/knowledge-base`, `/ai-lab/grounding`, and `/ai-lab/training` redirect to their current sections.
 
-## Architecture
+## Cloud models and cost
 
-~~~text
-Browser
-  |
-  +-- Next.js 16 / React 19 web app
-  |       |
-  |       +-- /api/v1 proxy
-  |
-  +-- FastAPI service
-          +-- PostgreSQL + pgvector
-          +-- Redis
-          +-- Celery worker
-          +-- provider adapters
-          +-- evaluators and RAG contracts
-          +-- Server-Sent Events for run progress
-~~~
+Add OpenAI, Anthropic, or Gemini credentials under **Settings → Cloud API keys**, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `GEMINI_API_KEY` in the server `.env`. The API never returns a stored secret to the browser. Local Ollama requires no key. The model picker reflects the current `GET /api/tags` response from Ollama and configured cloud providers.
 
-The web application falls back to bundled fixture data when the API is unavailable. Docker Compose enables the complete persistence, queue, and event-streaming path.
+For an OpenAI-compatible server, set `OPENAI_COMPATIBLE_BASE_URL` in the server `.env`. If that server requires authentication, add `OPENAI_COMPATIBLE_API_KEY` in Settings or `.env`.
 
-## Repository layout
+Prices are conservative estimates for listed standard text API rates, not invoices. Context tiers, cached usage, tools, regions, and multimodal input may change the actual charge. See the [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), and [Gemini](https://ai.google.dev/gemini-api/docs/pricing) price lists.
 
-~~~text
-apps/
-  web/          Next.js product UI and Playwright tests
-  api/          FastAPI service, migrations, worker, and pytest suite
-packages/
-  cli/          Python API client
-config/         Versioned model pricing metadata
-design/         UI direction, mockups, and image prompts
-docs/           Architecture decisions and source notes
-examples/       Reproducible experiment definitions
-~~~
+## Development
 
-## Local development
-
-Requirements:
-
-- Node.js 22 or newer
-- pnpm 11.19
-- Python 3.12 or newer
-- [uv](https://docs.astral.sh/uv/)
-- PostgreSQL and Redis, or Docker for those services
-
-Install and start the web app:
-
-~~~bash
-pnpm install
-pnpm dev
-~~~
-
-Start the API in another terminal:
-
-~~~bash
-cd apps/api
-uv sync --extra training --extra dev
-uv run uvicorn llmlab_api.main:app --reload
-~~~
-
-The default URLs are http://localhost:3000 for the UI and http://localhost:8000 for the API.
-
-## Configuration
-
-Copy **.env.example** to **.env**. These are the main settings:
-
-| Variable | Purpose |
-| --- | --- |
-| DATABASE_URL | PostgreSQL connection used by the API |
-| REDIS_URL | Redis broker and result transport |
-| OPENAI_API_KEY | Optional OpenAI access |
-| ANTHROPIC_API_KEY | Optional Anthropic access |
-| GEMINI_API_KEY | Optional Gemini access |
-| OPENAI_COMPATIBLE_BASE_URL | Optional compatible API base URL |
-| OPENAI_COMPATIBLE_API_KEY | Optional compatible API key |
-| OLLAMA_BASE_URL | Ollama-compatible local endpoint |
-| GIT_SHA | Revision stored with reproducibility metadata |
-
-Never commit **.env**. The tracked **.env.example** contains only safe placeholders and local defaults.
-
-## Common workflows
-
-### Evaluate without credentials
-
-1. Keep execution mode on **Fixture**.
-2. Create or edit a prompt version.
-3. Start an experiment from the overview.
-4. Compare the candidate with its baseline.
-5. Inspect regressions and evaluator evidence.
-
-### Use a local model
-
-1. Start Ollama and pull a supported model.
-2. Set **OLLAMA_BASE_URL**.
-3. Select **Local** in Prompt Lab.
-4. Enter or choose the exact model ID.
-5. Run the prompt and inspect measured usage and latency.
-
-### Use a cloud model
-
-1. Set the provider key in the API environment.
-2. Restart the API service.
-3. Check provider capability status in **Providers**.
-4. Select **Cloud** in Prompt Lab.
-5. Choose a verified model ID or type another ID available to the account.
-
-## Verification
-
-Run web checks:
-
-~~~bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm test:e2e
+```powershell
+pnpm --dir apps/web lint
+pnpm --dir apps/web typecheck
+pnpm --dir apps/web test
 pnpm build
-~~~
+pnpm --dir apps/web exec playwright install chromium
+pnpm test:e2e
+uv run --project apps/api --extra dev pytest -q apps/api/tests
+```
 
-Run API checks:
+[CI](.github/workflows/ci.yml) runs lint, type checks, unit tests, a production build, Playwright checks at desktop, tablet, and mobile sizes, and API tests on every push and pull request. The navigation test protects the sidebar groups, order, labels, active section, and every linked route. Playwright runs against the production build in CI.
 
-~~~bash
-cd apps/api
-uv run ruff check .
-uv run mypy llmlab_api
-uv run pytest
-~~~
-
-Default tests make no paid provider requests. Live-provider checks must stay opt-in.
-
-## Production checklist
-
-Before exposing LLMLab outside a trusted local network:
-
-- Replace all local database passwords.
-- Put TLS and an authenticated reverse proxy in front of web and API services.
-- Add organization-specific authentication, authorization, and tenant isolation.
-- Restrict CORS to deployed origins.
-- Store provider keys in a secret manager and rotate them regularly.
-- Configure database backups, retention, and restore drills.
-- Add rate limits, request-size limits, audit logging, and alerting.
-- Pin and scan container images and dependencies.
-- Review data retention for prompts, retrieved documents, model outputs, and human reviews.
-- Validate evaluator thresholds on domain-specific data before using them as release gates.
-
-## Design principles
-
-LLMLab uses a dense evaluation-workbench layout rather than a generic card dashboard. Information hierarchy comes from provenance strips, tables, evidence panels, and explicit states. All interactive controls support keyboard focus, reduced motion, responsive layouts, and both color themes.
-
-See [design/UI_DIRECTION.md](design/UI_DIRECTION.md) for the visual system.
-
-## Contributing
-
-Keep fixtures deterministic, mark provenance visibly, and add tests for behavior changes. Run the relevant web and API checks before opening a pull request. Do not add live network calls to the default test suite.
+The frontend uses Next.js 16 and React 19. The API uses FastAPI and SQLAlchemy. `start.py` uses local SQLite even when `.env` contains Docker service addresses. Docker Compose remains available for PostgreSQL and Redis deployment, but is not needed for the local workflow. Existing records from another project are not imported automatically.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+LLMLab source code is under [MIT](LICENSE). Third-party packages and IBM Plex fonts retain their own terms; see [third-party notices](THIRD_PARTY_NOTICES.md) and the generated [web](THIRD_PARTY_NODE_NOTICES.txt) and [API](THIRD_PARTY_PYTHON_NOTICES.txt) license texts. Docker images regenerate notices for the exact platform packages they contain.

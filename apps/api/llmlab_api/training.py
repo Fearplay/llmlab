@@ -1,3 +1,4 @@
+import importlib
 from typing import Any
 
 from fastapi import HTTPException
@@ -7,8 +8,8 @@ from .contracts import TrainingRequest
 
 def run_local_training(request: TrainingRequest) -> dict[str, Any]:
     try:
-        import torch  # type: ignore[import-not-found]
-        from torch import nn
+        torch: Any = importlib.import_module("torch")
+        nn: Any = importlib.import_module("torch.nn")
     except ImportError as error:
         raise HTTPException(
             501, "Install the API training extra to enable local PyTorch runs"

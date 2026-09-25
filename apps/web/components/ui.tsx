@@ -86,6 +86,20 @@ export function HelpLabel({ label, helpKey }: { label: string; helpKey?: string 
   return <span className="field-help-label"><span>{label}</span><InfoTip label={label} helpKey={helpKey} context="field" /></span>;
 }
 
+export function RunStatus({ status }: { status: string }) {
+  const normalized = status === "completed" ? "complete" : status;
+  return <span className="run-status" data-status={status}>{normalized}</span>;
+}
+
+export function AnswerReveal({ answer, locale, initiallyOpen = false, code = false }: { answer: string; locale: "cs" | "en"; initiallyOpen?: boolean; code?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const id = useId();
+  return <div className={`answer-reveal ${code ? "is-code" : ""}`}>
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}><span aria-hidden="true">{open ? "▾" : "▸"}</span>{locale === "cs" ? open ? "Skrýt odpověď" : "Zobrazit odpověď" : open ? "Hide answer" : "Show answer"}</button>
+    {open && <pre id={id}>{answer}</pre>}
+  </div>;
+}
+
 export function MetricLabel({ label, helpKey }: { label: string; helpKey?: string }) {
   return <span className="metric-help-label"><span>{label}</span><InfoTip label={label} helpKey={helpKey} context="metric" /></span>;
 }
