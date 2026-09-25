@@ -92,6 +92,24 @@ a { color: inherit; text-decoration: none; }
 .nav-group { margin-top: 4px; }
 .nav-group.group-active { color: white; }
 .nav-chevron { margin-left: auto; }
+.nav-lab-heading { display: flex; align-items: center; margin-top: 4px; }
+.nav-lab-heading > a { flex: 1; min-width: 0; }
+.nav-lab-heading > button { display: grid; place-items: center; width: 29px; height: 32px; flex: none; border: 0; color: #abb7c3; background: transparent; }
+.nav-lab-heading > button:hover, .nav-lab-group-trigger:hover { color: white; background: rgb(255 255 255 / 5%); }
+.nav-lab-groups { margin-left: 20px; border-left: 1px solid #3e4d5d; }
+.nav-lab-group-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 31px; padding: 5px 8px 5px 12px; border: 0; color: #b9c6d2; background: transparent; font-size: 12px; text-align: left; }
+.nav-lab-group .nav-subgroup { margin: 0 0 4px 9px; }
+.docs-tracks { display: grid; gap: 13px; }
+.docs-tracks > details { border: 1px solid var(--line); background: var(--paper); }
+.docs-tracks > details > summary { display: grid; grid-template-columns: 38px 1fr; gap: 2px 12px; align-items: baseline; padding: 15px 18px; cursor: pointer; list-style: none; }
+.docs-tracks > details > summary::-webkit-details-marker { display: none; }
+.docs-tracks > details > summary > span { grid-row: span 2; color: var(--blue); font-size: 12px; }
+.docs-tracks > details > summary > strong { font-size: 17px; font-weight: 500; }
+.docs-tracks > details > summary > small { color: var(--ink-soft); font-size: 12px; }
+.docs-tracks .lesson-path { margin: 0; padding: 0 18px 12px; }
+.message-structure { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.message-structure > div { display: flex; gap: 7px; padding: 6px 8px; border: 1px solid var(--line); color: var(--ink-faint); font: 11px "IBM Plex Mono", monospace; }
+.message-structure > div[data-present="true"] { border-color: var(--blue); color: var(--blue-deep); background: var(--blue-soft); }
 .nav-subgroup { margin: 1px 0 5px 21px; padding-left: 5px; border-left: 1px solid #3e4d5d; }
 .nav-sublink { min-height: 32px; padding: 6px 9px; font-size: 12px; }
 .nav-sublink.active::before { left: -6px; }

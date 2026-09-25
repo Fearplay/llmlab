@@ -79,3 +79,8 @@
 
 @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .metricGrid { grid-template-columns: repeat(2, 1fr); } .metric:nth-child(2) { border-right: 0; } .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
 @media (max-width: 620px) { .twoFields { grid-template-columns: 1fr; } .record summary { grid-template-columns: 1fr auto; } .record summary small { grid-column: 1 / -1; } .chartRow { grid-template-columns: minmax(70px, 100px) minmax(0, 1fr) auto; gap: 6px; } .metric { padding: 12px; } }
+.blindPair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.blindPair article { border: 1px solid var(--line); background: var(--paper-strong); padding: 14px; }
+.blindPair strong { color: var(--blue); font: 700 18px "IBM Plex Mono", monospace; }
+.blindPair p { white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+@media (max-width: 600px) { .blindPair { grid-template-columns: 1fr; } }

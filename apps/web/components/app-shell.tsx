@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  Bird,
   Beaker,
-  Bot,
-  Braces,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -21,10 +18,7 @@ import {
   Wallet,
   Swords,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
-  SquareStack,
   Sun,
   X,
 } from "lucide-react";
@@ -32,6 +26,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "./app-provider";
+import { labEntries, labGroups, labHref, type LabGroup } from "@/lib/lab-catalog";
 
 const primary = [
   { href: "/", key: "overview", icon: Gauge },
@@ -45,15 +40,6 @@ const primary = [
 const checks = [
   { href: "/history", key: "history", icon: History },
   { href: "/operations", key: "operations", icon: Wallet },
-];
-
-const labs = [
-  { href: "/ai-lab/prompt-tokens", key: "promptTokens", icon: Braces },
-  { href: "/ai-lab/embeddings", key: "embeddings", icon: Sparkles },
-  { href: "/ai-lab/rag", key: "rag", icon: SquareStack },
-  { href: "/ai-lab/safety", key: "safety", icon: ShieldCheck },
-  { href: "/ai-lab/agents", key: "agents", icon: Bot },
-  { href: "/ai-lab/flappy", key: "flappy", icon: Bird },
 ];
 
 function ModeBadge() {
@@ -110,9 +96,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { locale, setLocale, resolvedTheme, setTheme, t } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labsOpen, setLabsOpen] = useState(pathname.startsWith("/ai-lab"));
+  const activeLab = labEntries.find((item) => pathname === labHref(item.slug));
+  const [openGroup, setOpenGroup] = useState<LabGroup | null>(activeLab?.group ?? null);
   const [query, setQuery] = useState("");
-  const destinations = [...primary, ...labs, { href: "/reviews", key: "reviews" }, ...checks, { href: "/settings", key: "settings" }, { href: "/docs", key: "documentation" }];
-  const searchResults = query.trim() ? destinations.filter((item) => `${t(`nav.${item.key}`)} ${item.href}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
+  useEffect(() => {
+    if (activeLab) queueMicrotask(() => { setLabsOpen(true); setOpenGroup(activeLab.group); });
+  }, [activeLab]);
+  const destinations = [
+    ...primary.map((item) => ({ href: item.href, label: t(`nav.${item.key}`) })),
+    { href: "/ai-lab", label: t("nav.aiLab") },
+    ...labEntries.map((item) => ({ href: labHref(item.slug), label: locale === "cs" ? item.cs : item.en })),
+    ...[{ href: "/reviews", key: "reviews" }, ...checks, { href: "/settings", key: "settings" }, { href: "/docs", key: "documentation" }].map((item) => ({ href: item.href, label: t(`nav.${item.key}`) })),
+  ];
+  const searchResults = query.trim() ? destinations.filter((item) => `${item.label} ${item.href}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6) : [];
 
   const active = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -134,16 +130,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Icon size={18} strokeWidth={1.8} /><span>{t(`nav.${key}`)}</span>
             </Link>
           ))}
-          <button className={`nav-link nav-group ${pathname.startsWith("/ai-lab") ? "group-active" : ""}`} onClick={() => setLabsOpen((value) => !value)} aria-expanded={labsOpen}>
-            <Beaker size={18} strokeWidth={1.8} /><span>{t("nav.aiLab")}</span>{labsOpen ? <ChevronDown className="nav-chevron" size={15} /> : <ChevronRight className="nav-chevron" size={15} />}
-          </button>
+          <div className="nav-lab-heading"><Link href="/ai-lab" className={`nav-link ${pathname === "/ai-lab" ? "active" : ""}`} onClick={() => setMobileOpen(false)}><Beaker size={18} strokeWidth={1.8} /><span>{t("nav.aiLab")}</span></Link><button type="button" aria-label={locale === "cs" ? "Rozbalit AI laboratoř" : "Expand AI Lab"} aria-expanded={labsOpen} onClick={() => setLabsOpen((value) => !value)}>{labsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></div>
           {labsOpen && (
-            <div className="nav-subgroup">
-              {labs.map(({ href, key, icon: Icon }) => (
-                <Link key={href} href={href} className={`nav-link nav-sublink ${active(href) ? "active" : ""}`} onClick={() => setMobileOpen(false)}>
-                  <Icon size={15} /><span>{t(`nav.${key}`)}</span>
-                </Link>
-              ))}
+            <div className="nav-lab-groups">
+              {labGroups.map((group) => <div key={group.id} className="nav-lab-group"><button type="button" className="nav-lab-group-trigger" aria-expanded={openGroup === group.id} onClick={() => setOpenGroup((current) => current === group.id ? null : group.id)}><span>{locale === "cs" ? group.cs : group.en}</span>{openGroup === group.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>{openGroup === group.id && <div className="nav-subgroup">{labEntries.filter((item) => item.group === group.id).map((item) => <Link key={item.slug} href={labHref(item.slug)} className={`nav-link nav-sublink ${pathname === labHref(item.slug) ? "active" : ""}`} onClick={() => setMobileOpen(false)}><span>{locale === "cs" ? item.cs : item.en}</span></Link>)}</div>}</div>)}
             </div>
           )}
           <Link href="/reviews" className={`nav-link ${active("/reviews") ? "active" : ""}`} onClick={() => setMobileOpen(false)}>
@@ -164,10 +154,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="app-main">
         <header className="topbar">
-          <div className="breadcrumbs"><strong>{pathname === "/" ? t("nav.overview") : t(`nav.${routeKey(pathname)}`)}</strong></div>
+          <div className="breadcrumbs"><strong>{activeLab ? locale === "cs" ? activeLab.cs : activeLab.en : pathname === "/ai-lab" ? t("nav.aiLab") : pathname === "/" ? t("nav.overview") : t(`nav.${routeKey(pathname)}`)}</strong></div>
           <div className="search-shell">
             <label className="global-search"><Search size={16} /><span className="sr-only">{t("app.search")}</span><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { router.push(searchResults[0].href); setQuery(""); } }} placeholder={t("app.search")} /></label>
-            {query && <div className="search-results">{searchResults.length ? searchResults.map((item) => <Link key={item.href} href={item.href} onClick={() => setQuery("")}><span>{t(`nav.${item.key}`)}</span><small className="mono">{item.href}</small></Link>) : <span>{t("common.noResults")}</span>}</div>}
+            {query && <div className="search-results">{searchResults.length ? searchResults.map((item) => <Link key={item.href} href={item.href} onClick={() => setQuery("")}><span>{item.label}</span><small className="mono">{item.href}</small></Link>) : <span>{t("common.noResults")}</span>}</div>}
           </div>
           <ModelPicker />
           <ModeBadge />

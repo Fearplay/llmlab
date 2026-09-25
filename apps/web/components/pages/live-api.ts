@@ -7,9 +7,9 @@ export interface ExperimentResult {
   error?: string | null;
   latency_ms?: number | null;
   usage?: UsageData;
-  grade?: { method?: string; score?: number; passed?: boolean } | null;
+  grade?: { method?: string; score?: number | null; passed?: boolean | null; model_key?: string; reason?: string; prompt?: string | null; error?: string; expected_facts_found?: string[]; forbidden_facts_found?: string[] } | null;
   cost?: { estimated_usd?: number | null; status?: string; price?: unknown } | null;
-  judge?: { model_key?: string; opinion?: string; usage?: UsageData; latency_ms?: number; cost?: { estimated_usd?: number | null } } | null;
+  judge?: { model_key?: string; prompt?: Array<{ role: string; content: string }>; opinion?: string; usage?: UsageData; latency_ms?: number; cost?: { estimated_usd?: number | null } } | null;
   order_check?: { reversed_output?: string; same_answer?: boolean; latency_ms?: number; usage?: UsageData; cost?: { estimated_usd?: number | null } } | null;
 }
 export interface ExperimentRecord {

@@ -5,23 +5,24 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import re
 import uuid
 from collections import Counter
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .contracts import ExecutionMode, GenerationRequest
+from .contracts import EmbeddingRequest, ExecutionMode, GenerationRequest
 from .database import SessionLocal, get_db
 from .game_models import GameEpisode
-from .models import Dataset, Run
+from .models import Dataset, HumanReview, Run
 from .pricing import estimate_usage_cost
-from .providers import generate
+from .providers import embed, generate
 from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1", tags=["lab"])
@@ -35,13 +36,39 @@ class DatasetCase(BaseModel):
     input: str = Field(min_length=1, max_length=8000)
     expected: str | None = None
     evidence: list[str] = Field(default_factory=list, max_length=20)
+    expected_facts: list[str] = Field(default_factory=list, max_length=30)
+    expected_json: dict[str, Any] | None = None
+    relevant_document_ids: list[str] = Field(default_factory=list, max_length=30)
+    forbidden_facts: list[str] = Field(default_factory=list, max_length=30)
+    tags: list[str] = Field(default_factory=list, max_length=20)
     schema_: dict[str, Any] | None = Field(default=None, alias="schema")
-    evaluator: Literal["exact_match", "partial_match", "contains", "json_schema"] = "partial_match"
+    evaluator: Literal[
+        "exact_match",
+        "partial_match",
+        "contains",
+        "json_schema",
+        "semantic",
+        "relevance",
+        "groundedness",
+        "llm_judge",
+        "custom_prompt",
+    ] = "partial_match"
 
 
 class DatasetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=180)
     cases: list[DatasetCase] = Field(min_length=1, max_length=500)
+
+
+class RetrievalRanking(BaseModel):
+    case_id: str
+    document_ids: list[str] = Field(max_length=100)
+
+
+class RetrievalEvalCreate(BaseModel):
+    dataset_id: str
+    k: int = Field(5, ge=1, le=20)
+    rankings: list[RetrievalRanking] = Field(min_length=1, max_length=500)
 
 
 class ExperimentCreate(BaseModel):
@@ -58,6 +85,138 @@ class ExperimentCreate(BaseModel):
     max_tokens: int = Field(default=512, ge=1, le=4096)
     judge_model_key: str | None = None
     order_check: bool = False
+    evaluator_override: (
+        Literal[
+            "exact_match",
+            "partial_match",
+            "contains",
+            "json_schema",
+            "semantic",
+            "relevance",
+            "groundedness",
+            "llm_judge",
+            "custom_prompt",
+        ]
+        | None
+    ) = None
+    evaluator_model_key: str | None = None
+    embedding_model_key: str | None = None
+    evaluator_prompt: str | None = Field(default=None, max_length=4000)
+
+
+class AdvancedEvaluation(BaseModel):
+    evaluator: Literal["semantic", "relevance", "groundedness", "llm_judge", "custom_prompt"]
+    question: str = Field(default="", max_length=8000)
+    answer: str = Field(max_length=16000)
+    expected: str = Field(default="", max_length=16000)
+    evidence: list[str] = Field(default_factory=list, max_length=20)
+    model_key: str
+    prompt: str | None = Field(default=None, max_length=4000)
+
+
+class ArenaVote(BaseModel):
+    case_id: str
+    choice: Literal["A", "B", "tie"]
+
+
+@router.post("/evaluations/advanced")
+async def advanced_evaluation(request: AdvancedEvaluation) -> dict[str, Any]:
+    provider, model, mode = _split_model_key(request.model_key)
+    if request.evaluator == "semantic":
+        if not request.expected.strip():
+            raise HTTPException(422, "Semantic evaluation requires a reference answer")
+        result = await embed(
+            EmbeddingRequest(
+                mode=mode, provider=provider, model=model, inputs=[request.answer, request.expected]
+            ),
+            get_settings(),
+        )
+        left, right = result.vectors
+        denominator = math.sqrt(sum(value * value for value in left)) * math.sqrt(
+            sum(value * value for value in right)
+        )
+        similarity = (
+            sum(a * b for a, b in zip(left, right, strict=True)) / denominator if denominator else 0
+        )
+        return {
+            "method": "semantic",
+            "score": round(max(0.0, similarity), 4),
+            "passed": similarity >= 0.7,
+            "model_key": request.model_key,
+            "reason": "Cosine similarity of answer and reference embeddings",
+            "prompt": None,
+            "usage": result.usage.model_dump(),
+            "cost": estimate_usage_cost(request.model_key, result.usage.model_dump()),
+            "fixture": result.fixture,
+        }
+    if request.evaluator == "groundedness" and not request.evidence:
+        raise HTTPException(422, "Groundedness requires evidence")
+    prompts = {
+        "relevance": (
+            "Rate how directly the answer addresses the question. "
+            "Do not judge factual truth without sources."
+        ),
+        "groundedness": (
+            "Rate whether every factual claim in the answer is supported by the evidence. "
+            "Point out unsupported or conflicting claims."
+        ),
+        "llm_judge": (
+            "Rate answer quality against the question, reference and evidence. "
+            "State uncertainty when references are missing."
+        ),
+        "custom_prompt": request.prompt or "",
+    }
+    instruction = prompts[request.evaluator]
+    if not instruction.strip():
+        raise HTTPException(422, "Custom evaluation requires a prompt")
+    instruction += (
+        " Return JSON with score from 0 to 1 and a concise reason. "
+        "This is a model opinion, not ground truth."
+    )
+    payload = json.dumps(
+        {
+            "question": request.question,
+            "answer": request.answer,
+            "expected": request.expected,
+            "evidence": request.evidence,
+        },
+        ensure_ascii=False,
+    )
+    generated = await generate(
+        GenerationRequest(
+            mode=mode,
+            provider=provider,
+            model=model,
+            messages=[
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": payload},
+            ],
+            temperature=0,
+            top_p=1,
+            max_tokens=256,
+        ),
+        get_settings(),
+    )
+    raw = generated.text.strip()
+    try:
+        parsed = json.loads(re.sub(r"^```(?:json)?\s*|\s*```$", "", raw))
+        score = max(0.0, min(1.0, float(parsed["score"])))
+        reason = str(parsed.get("reason") or raw)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        score = None
+        reason = raw
+    return {
+        "method": request.evaluator,
+        "score": score,
+        "passed": score >= 0.7 if score is not None else None,
+        "model_key": request.model_key,
+        "reason": reason,
+        "prompt": instruction,
+        "input": payload,
+        "usage": generated.usage.model_dump(),
+        "cost": estimate_usage_cost(request.model_key, generated.usage.model_dump()),
+        "fixture": generated.fixture,
+    }
 
 
 def _dataset_view(row: Dataset) -> dict[str, Any]:
@@ -112,6 +271,59 @@ def delete_dataset(dataset_id: str, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
+@router.post("/retrieval-evals")
+def evaluate_retrieval(
+    request: RetrievalEvalCreate, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    dataset = db.get(Dataset, request.dataset_id)
+    if dataset is None:
+        raise HTTPException(404, "Dataset not found")
+    by_case = {case["id"]: case for case in dataset.cases}
+    rows: list[dict[str, Any]] = []
+    for ranking in request.rankings:
+        case = by_case.get(ranking.case_id)
+        if case is None:
+            raise HTTPException(422, f"Unknown case ID: {ranking.case_id}")
+        relevant = set(case.get("relevant_document_ids") or [])
+        if not relevant:
+            rows.append(
+                {
+                    "case_id": ranking.case_id,
+                    "status": "unscored",
+                    "reason": "No relevant documents specified",
+                }
+            )
+            continue
+        ordered = list(dict.fromkeys(ranking.document_ids))
+        found = sum(document_id in relevant for document_id in ordered[: request.k])
+        first = next(
+            (index for index, document_id in enumerate(ordered) if document_id in relevant), None
+        )
+        rows.append(
+            {
+                "case_id": ranking.case_id,
+                "status": "scored",
+                "recall_at_k": found / len(relevant),
+                "precision_at_k": found / request.k,
+                "mrr": 1 / (first + 1) if first is not None else 0,
+                "found": found,
+                "relevant": len(relevant),
+            }
+        )
+    scored = [row for row in rows if row["status"] == "scored"]
+    return {
+        "dataset_id": dataset.id,
+        "k": request.k,
+        "cases": rows,
+        "scored_cases": len(scored),
+        "recall_at_k": sum(row["recall_at_k"] for row in scored) / len(scored) if scored else None,
+        "precision_at_k": sum(row["precision_at_k"] for row in scored) / len(scored)
+        if scored
+        else None,
+        "mrr": sum(row["mrr"] for row in scored) / len(scored) if scored else None,
+    }
+
+
 def _run_view(row: Run) -> dict[str, Any]:
     return {
         "id": row.id,
@@ -130,6 +342,81 @@ def _run_view(row: Run) -> dict[str, Any]:
         "error": row.error,
         "created_at": row.created_at.isoformat(),
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+    }
+
+
+def _arena_pair(row: Run, case_id: str) -> list[dict[str, Any]]:
+    completed = [
+        item
+        for item in row.results or []
+        if item.get("case_id") == case_id and item.get("status") == "completed"
+    ]
+    if len(completed) != 2:
+        raise HTTPException(409, "Blind voting requires two completed answers for a case")
+    return sorted(
+        completed,
+        key=lambda item: hashlib.sha256(
+            f"{row.id}:{case_id}:{item['model_key']}".encode()
+        ).hexdigest(),
+    )
+
+
+@router.get("/experiments/{run_id}/blind")
+def blind_arena(run_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    row = db.get(Run, run_id)
+    if row is None or row.kind != "arena":
+        raise HTTPException(404, "Arena run not found")
+    cases = list(
+        dict.fromkeys(
+            item.get("case_id")
+            for item in row.results or []
+            if item.get("status") == "completed" and isinstance(item.get("case_id"), str)
+        )
+    )
+    pairs = []
+    for case_id in cases:
+        try:
+            pair = _arena_pair(row, cast(str, case_id))
+        except HTTPException:
+            continue
+        pairs.append({"case_id": case_id, "A": pair[0]["output"], "B": pair[1]["output"]})
+    return {"run_id": run_id, "pairs": pairs}
+
+
+@router.post("/experiments/{run_id}/vote")
+def vote_arena(run_id: str, request: ArenaVote, db: Session = Depends(get_db)) -> dict[str, Any]:
+    row = db.get(Run, run_id)
+    if row is None or row.kind != "arena":
+        raise HTTPException(404, "Arena run not found")
+    pair = _arena_pair(row, request.case_id)
+    winner = (
+        None if request.choice == "tie" else pair[0 if request.choice == "A" else 1]["model_key"]
+    )
+    db.add(
+        HumanReview(
+            id=f"hr_{uuid.uuid4().hex[:12]}",
+            run_id=run_id,
+            case_id=request.case_id,
+            verdict=request.choice,
+            comment=winner or "tie",
+        )
+    )
+    db.commit()
+    votes = list(
+        db.scalars(
+            select(HumanReview).where(
+                HumanReview.run_id == run_id,
+                HumanReview.case_id == request.case_id,
+                HumanReview.verdict.in_(["A", "B", "tie"]),
+            )
+        )
+    )
+    return {
+        "choice": request.choice,
+        "models": {"A": pair[0]["model_key"], "B": pair[1]["model_key"]},
+        "votes": {
+            choice: sum(vote.verdict == choice for vote in votes) for choice in ("A", "B", "tie")
+        },
     }
 
 
@@ -163,7 +450,7 @@ def operations_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
                     item.get(extra, {}).get("model_key") or item.get("model_key") or row.model,
                     item[extra],
                 )
-                for extra in ("judge", "order_check")
+                for extra in ("judge", "order_check", "grade")
                 if isinstance(item.get(extra), dict)
             ]
             for model_key, entry in entries:
@@ -456,7 +743,50 @@ async def _run_case(spec: ExperimentCreate, model_key: str, case: dict[str, Any]
             "latency_ms": None,
             "grade": None,
         }
-    grade = _grade(response.text, case)
+    method = spec.evaluator_override or case.get("evaluator", "partial_match")
+    grade: dict[str, Any] | None
+    if method in {"semantic", "relevance", "groundedness", "llm_judge", "custom_prompt"}:
+        try:
+            grade = await advanced_evaluation(
+                AdvancedEvaluation(
+                    evaluator=cast(Any, method),
+                    question=case["input"],
+                    answer=response.text,
+                    expected=case.get("expected") or "",
+                    evidence=evidence,
+                    model_key=(
+                        spec.embedding_model_key
+                        if method == "semantic"
+                        else spec.evaluator_model_key
+                    ) or model_key,
+                    prompt=spec.evaluator_prompt,
+                )
+            )
+        except Exception as error:
+            grade = {"method": method, "score": None, "passed": None, "error": str(error)[:300]}
+    else:
+        grade = _grade(response.text, {**case, "evaluator": method})
+    facts = [
+        fact
+        for fact in case.get("expected_facts", [])
+        if fact.casefold() in response.text.casefold()
+    ]
+    forbidden = [
+        fact
+        for fact in case.get("forbidden_facts", [])
+        if fact.casefold() in response.text.casefold()
+    ]
+    if grade is None and (case.get("expected_facts") or case.get("forbidden_facts")):
+        expected_facts = case.get("expected_facts") or []
+        score = len(facts) / len(expected_facts) if expected_facts else 1.0
+        grade = {"method": "fact_presence", "score": score,
+                 "passed": score >= 0.7 and not forbidden}
+    if grade is not None:
+        grade["expected_facts_found"] = facts
+        grade["forbidden_facts_found"] = forbidden
+        if forbidden:
+            grade["score"] = 0.0
+            grade["passed"] = False
     output: dict[str, Any] = {
         "case_id": case["id"],
         "model_key": model_key,
@@ -529,6 +859,7 @@ async def _judge(model_key: str, case: dict[str, Any], answer: str) -> dict[str,
         result = await generate(request, get_settings())
     return {
         "model_key": model_key,
+        "prompt": request.messages,
         "opinion": result.text,
         "usage": result.usage.model_dump(),
         "latency_ms": result.latency_ms,
@@ -544,6 +875,12 @@ def _grade(answer: str, case: dict[str, Any]) -> dict[str, Any] | None:
     expected = case.get("expected")
     schema = case.get("schema")
     evaluator = case.get("evaluator", "partial_match")
+    if case.get("expected_json") is not None and evaluator == "json_schema" and not schema:
+        try:
+            matched = json.loads(answer) == case["expected_json"]
+        except ValueError:
+            matched = False
+        return {"method": "expected_json", "score": float(matched), "passed": matched}
     if evaluator == "json_schema" and schema:
         from jsonschema import ValidationError, validate  # type: ignore[import-untyped]
 
@@ -582,7 +919,11 @@ def _summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         by_model.setdefault(item["model_key"], []).append(item)
     rows = []
     for model_key, items in by_model.items():
-        scored = [item["grade"]["score"] for item in items if item.get("grade")]
+        scored = [
+            item["grade"]["score"]
+            for item in items
+            if item.get("grade") and isinstance(item["grade"].get("score"), (int, float))
+        ]
         elapsed = [item["latency_ms"] for item in items if item.get("latency_ms") is not None]
         rows.append(
             {
@@ -614,7 +955,7 @@ def _aggregate_usage(results: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(item.get("usage"), dict):
             usages.append(item["usage"])
             estimates.append(item.get("cost", {}).get("estimated_usd"))
-        for extra in ("order_check", "judge"):
+        for extra in ("order_check", "judge", "grade"):
             if isinstance(item.get(extra), dict) and isinstance(item[extra].get("usage"), dict):
                 usages.append(item[extra]["usage"])
                 estimates.append(item[extra].get("cost", {}).get("estimated_usd"))

@@ -1,0 +1,25 @@
+.exampleButtons { display: flex; flex-wrap: wrap; gap: 6px; }
+.exampleButtons button { padding: 6px 9px; border: 1px solid var(--line); background: var(--paper-strong); font-size: 11px; }
+.exampleButtons button:hover { border-color: var(--blue); color: var(--blue-deep); }
+.tokens { display: flex; flex-wrap: wrap; gap: 6px; max-height: 340px; overflow-y: auto; margin-top: 15px; }
+.token { display: grid; gap: 3px; min-width: 46px; max-width: 170px; padding: 7px 9px; border: 1px solid var(--line); background: var(--paper-strong); overflow-wrap: anywhere; }
+.token span { white-space: pre-wrap; font-size: 13px; }
+.token strong { color: var(--blue-deep); font: 500 10px "IBM Plex Mono", monospace; }
+.vectors { display: grid; gap: 5px; max-height: 280px; overflow: auto; }
+.vectors > div { display: grid; grid-template-columns: minmax(60px, 1fr) repeat(3, minmax(110px, 1.3fr)); gap: 6px; padding: 7px; border-bottom: 1px solid var(--line-soft); font: 10px "IBM Plex Mono", monospace; }
+.vectors .selected { background: var(--blue-soft); }
+.vectors strong { font-family: "IBM Plex Sans", sans-serif; }
+.matrix { overflow-x: auto; }
+.matrixHead, .matrixRow { display: grid; grid-template-columns: 85px repeat(7, minmax(45px, 1fr)); gap: 2px; min-width: 450px; }
+.matrixHead span, .matrixRow strong, .matrixRow span { padding: 6px 3px; font-size: 10px; text-align: center; overflow: hidden; }
+.matrixRow span { font-family: "IBM Plex Mono", monospace; }
+.sampleList { display: flex; flex-wrap: wrap; gap: 6px; }
+.sampleList span { padding: 6px 8px; background: var(--blue-soft); color: var(--blue-deep); font-size: 12px; }
+.action { min-height: 36px; padding: 8px 12px; border: 0; background: var(--blue); color: white; font-size: 12px; }
+.action:hover { background: var(--blue-deep); }
+.contextParts { display: grid; gap: 1px; margin-top: 15px; background: var(--line); border: 1px solid var(--line); }
+.contextParts > div { display: grid; grid-template-columns: 1fr 85px 65px; gap: 6px; padding: 10px; background: var(--paper); font-size: 12px; }
+.contextParts strong { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; }
+.contextParts em { font-size: 11px; font-style: normal; color: var(--green); }
+.contextParts [data-dropped="true"] { opacity: .6; text-decoration: line-through; }
+.contextParts [data-dropped="true"] em { color: var(--red); }
