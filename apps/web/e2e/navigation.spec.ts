@@ -64,6 +64,17 @@ test("every section renders and marks its sidebar link", async ({ page }, testIn
   }
 });
 
+test("every AI lab remains usable at mobile width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Mobile route coverage.");
+  for (const href of labPaths) {
+    const response = await page.goto(href);
+    expect(response?.status(), href).toBe(200);
+    await expect(page.locator("main h1").first(), href).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, `Horizontal overflow at ${href}`).toBeLessThanOrEqual(1);
+  }
+});
+
 test("mobile menu closes after selecting a grouped lab", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile navigation behavior.");
   const navigation = await showNavigation(page, true);

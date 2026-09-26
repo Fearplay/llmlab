@@ -102,3 +102,10 @@
 .scenarioGallery { display: grid; gap: 12px; padding: 15px; }
 .scenarioGallery > p { margin: 0; font-size: 12px; color: var(--ink-soft); }
 .scenarioGallery .flowList { padding: 0; }
+.exampleChoices { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; color: var(--ink-soft); font-size: 12px; }
+.exampleChoices button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 6px 10px; cursor: pointer; }
+.exampleChoices button:hover, .exampleChoices button:focus-visible { border-color: var(--blue); color: var(--blue); }
+.attempts { margin: 8px 0; border: 1px solid var(--line-soft); padding: 8px; }
+.attempts summary { cursor: pointer; color: var(--blue); font-size: 11px; }
+.attempts > div { display: grid; gap: 4px; margin-top: 9px; }
+.attempts strong, .attempts small { font-size: 10px; color: var(--ink-soft); }

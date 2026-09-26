@@ -45,10 +45,10 @@ export function InfoTip({ label, helpKey, context = "control" }: { label: string
     document.body,
   ) : null;
 
-  return <><span ref={root} className={`info-tip ${open ? "is-open" : ""}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><span className="info-tip-trigger" role="button" tabIndex={0} aria-label={locale === "cs" ? `Více informací: ${copy.title}` : `More information: ${copy.title}`} aria-expanded={open} aria-describedby={open ? id : undefined} onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpen((value) => !value); } }}><Info size={11} strokeWidth={2.2} /></span></span>{popover}</>;
+  return <><span ref={root} className={`info-tip ${open ? "is-open" : ""}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><span role="button" tabIndex={0} className="info-tip-trigger" aria-label={locale === "cs" ? `Více informací: ${copy.title}` : `More information: ${copy.title}`} aria-expanded={open} aria-describedby={open ? id : undefined} onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); setOpen(true); } }}><Info size={13} strokeWidth={2.2} /></span></span>{popover}</>;
 }
 
-export function Combobox({ value, options, onChange, ariaLabel, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; ariaLabel: string; disabled?: boolean }) {
+export function Combobox({ value, options, onChange, ariaLabel, helpKey, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; ariaLabel: string; helpKey: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [filtering, setFiltering] = useState(false);
@@ -70,7 +70,7 @@ export function Combobox({ value, options, onChange, ariaLabel, disabled = false
     setFiltering(false);
   };
 
-  return <div className={`combobox ${open ? "is-open" : ""}`} ref={root}>
+  return <><div className={`combobox ${open ? "is-open" : ""}`} ref={root}>
     <input aria-label={ariaLabel} role="combobox" aria-autocomplete="list" aria-controls={id} aria-expanded={open} aria-activedescendant={open && visibleOptions[activeIndex] ? `${id}-${activeIndex}` : undefined} value={value} disabled={disabled} autoComplete="off" onFocus={() => { if (!disabled) { setFiltering(false); setOpen(true); } }} onChange={(event) => { onChange(event.target.value); setActiveIndex(0); setFiltering(true); setOpen(true); }} onKeyDown={(event) => {
       if (event.key === "ArrowDown") { event.preventDefault(); setOpen(true); setActiveIndex((index) => Math.min(index + 1, visibleOptions.length - 1)); }
       if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex((index) => Math.max(index - 1, 0)); }
@@ -79,11 +79,13 @@ export function Combobox({ value, options, onChange, ariaLabel, disabled = false
     }} />
     <button type="button" className="combobox-toggle" aria-label={`${ariaLabel}: ${open ? "close options" : "open options"}`} aria-expanded={open} disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => { setFiltering(false); setActiveIndex(0); setOpen((value) => !value); }}><ChevronDown size={14} /></button>
     {open && visibleOptions.length > 0 && <div className="combobox-menu" id={id} role="listbox" aria-label={`${ariaLabel} options`}>{visibleOptions.map((option, index) => <button type="button" id={`${id}-${index}`} role="option" aria-selected={option === value} className={index === activeIndex ? "active" : ""} key={option} onMouseEnter={() => setActiveIndex(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}><span>{option}</span>{option === value && <Check size={13} />}</button>)}</div>}
-  </div>;
+  </div><InfoTip label={ariaLabel} helpKey={helpKey} context="field" /></>;
 }
 
-export function HelpLabel({ label, helpKey }: { label: string; helpKey?: string }) {
-  return <span className="field-help-label"><span>{label}</span><InfoTip label={label} helpKey={helpKey} context="field" /></span>;
+export function HelpLabel({ label, helpKey }: { label: string; helpKey: string }) {
+  const { locale } = useApp();
+  const copy = getHelpContent(helpKey, label, locale, "field");
+  return <span className="field-help-label"><span className="field-help-title"><span>{label}</span><InfoTip label={label} helpKey={helpKey} context="field" /></span><small className="field-help-example" aria-hidden="true">{locale === "cs" ? "Příklad: " : "Example: "}{copy.example}</small></span>;
 }
 
 export function RunStatus({ status }: { status: string }) {
@@ -140,8 +142,8 @@ export function Panel({ title, aside, children, className = "", helpKey }: { tit
   return <section className={`panel ${className}`}>{title && <header className="panel-header"><div className="panel-title-row"><h2>{title}</h2><InfoTip label={title} helpKey={helpKey} context="section" /></div>{aside}</header>}<div className="panel-body">{children}</div></section>;
 }
 
-export function Select({ value, onChange, children, ariaLabel, disabled = false }: { value: string; onChange?: (value: string) => void; children: React.ReactNode; ariaLabel: string; disabled?: boolean }) {
-  return <div className="select-wrap"><select aria-label={ariaLabel} value={value} disabled={disabled} onChange={(event) => onChange?.(event.target.value)}>{children}</select><ChevronDown size={14} /></div>;
+export function Select({ value, onChange, children, ariaLabel, helpKey, disabled = false }: { value: string; onChange?: (value: string) => void; children: React.ReactNode; ariaLabel: string; helpKey: string; disabled?: boolean }) {
+  return <div className="control-with-help"><div className="select-wrap"><select aria-label={ariaLabel} value={value} disabled={disabled} onChange={(event) => onChange?.(event.target.value)}>{children}</select><ChevronDown size={14} /></div><InfoTip label={ariaLabel} helpKey={helpKey} context="field" /></div>;
 }
 
 export function StatusMark({ result }: { result: "pass" | "fail" | "neutral" }) {

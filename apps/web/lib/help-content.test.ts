@@ -23,4 +23,13 @@ describe("contextual help content", () => {
     expect(czech.description).toContain("metrika");
     expect(czech.example).toContain("Porovnej");
   });
+
+  it("explains core teaching metrics with a concrete example in both languages", () => {
+    const czech = getHelpContent(undefined, "Recall@2", "cs", "metric");
+    const english = getHelpContent(undefined, "Recall@2", "en", "metric");
+    expect(czech.description).toContain("relevantních dokumentů");
+    expect(czech.example).toContain("0,5");
+    expect(english.description).toContain("relevant documents");
+    expect(english.example).toContain("0.5");
+  });
 });

@@ -1,6 +1,6 @@
 # LLMLab
 
-A local workbench for learning how language models behave, comparing real responses, and inspecting the evidence behind a run. The app starts empty: examples appear only when you explicitly load them.
+A local workbench for learning how language models behave, comparing real responses, and inspecting the evidence behind a run. Fields show short examples; live model requests run only after you click.
 
 [Česká verze](README.cs.md)
 
@@ -52,7 +52,7 @@ The sidebar keeps these destinations in this order. **AI Lab** is an expandable 
 | Run history | `/history` | Browse saved runs and open comparisons and detailed results. |
 | Cost & operations | `/operations` | Inspect daily runs, model token totals, provider status, price catalog, and known API cost estimates. Unknown prices remain unknown. |
 | Settings | `/settings` | Change local preferences and manage provider connections. |
-| Documentation | `/docs` | Follow nine short lessons that link to the interactive labs. |
+| Documentation | `/docs` | Follow four learning paths with 26 guided missions and an optional Flappy AI mission. Each mission asks for a prediction, an experiment, and a short check. |
 
 The run comparison has its own route at `/experiments/compare`. Older links to `/experiments`, `/knowledge-base`, `/ai-lab/grounding`, and `/ai-lab/training` redirect to their current sections.
 

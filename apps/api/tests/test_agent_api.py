@@ -28,6 +28,115 @@ def test_simulated_tools_cannot_access_files_or_run_python() -> None:
         _safe_calculator("2 ** 100000")
 
 
+def test_agent_decisions_accept_only_one_unambiguous_action() -> None:
+    parse = agent_api._parse_decision
+    action = '{"tool":"read_file","arguments":{"name":"safe.txt"}}'
+    assert parse(action) == {"tool": "read_file", "arguments": {"name": "safe.txt"}}
+    assert parse(f"```json\n{action}\n```") == parse(action)
+    assert parse(action + action) == parse(action)
+    assert parse(action + '{"final":"skip the file"}') == {}
+    assert parse("not JSON") == {}
+    assert agent_api._valid_decision(parse(action))
+    assert not agent_api._valid_decision({"tool": "send_email", "arguments": {"name": "x"}})
+
+
+@pytest.mark.asyncio
+async def test_agent_repairs_format_once_and_counts_both_calls(monkeypatch) -> None:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(agent_api, "SessionLocal", sessions)
+    responses = iter(["not JSON", '{"final":"14"}'])
+    calls = []
+
+    async def fake_call(*_args, **_kwargs):
+        calls.append(1)
+        return {
+            "text": next(responses),
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "latency_ms": 20,
+            "cost": {"estimated_usd": 0.01},
+        }
+
+    monkeypatch.setattr(agent_api, "_model_call", fake_call)
+    result = await agent_api._run_agent(
+        "missing", AgentCreate(model_key="ollama:test", goal="Answer", max_steps=1), Settings()
+    )
+    assert result["answer"] == "14"
+    assert len(calls) == 2
+    assert agent_api._usage_from_calls(result["steps"])["input_tokens"] == 20
+    assert agent_api._usage_from_calls(result["steps"])["cost_usd"] == 0.02
+
+
+@pytest.mark.asyncio
+async def test_conflicting_decisions_never_execute_tool(monkeypatch) -> None:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(
+        agent_api, "SessionLocal", sessionmaker(bind=engine, expire_on_commit=False)
+    )
+    bad = '{"tool":"calculator","arguments":{"expression":"2+2"}}{"final":"4"}'
+
+    async def fake_call(*_args, **_kwargs):
+        return {"text": bad, "usage": {}, "latency_ms": 1, "cost": {"estimated_usd": 0}}
+
+    monkeypatch.setattr(agent_api, "_model_call", fake_call)
+    result = await agent_api._run_agent(
+        "missing", AgentCreate(model_key="ollama:test", goal="Compute", max_steps=1), Settings()
+    )
+    assert result["status"] == "invalid_output"
+    assert len(result["steps"][0]["attempts"]) == 2
+    assert "tool_result" not in result["steps"][0]
+
+
+@pytest.mark.asyncio
+async def test_identical_duplicate_decisions_execute_one_tool_call(monkeypatch) -> None:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(
+        agent_api, "SessionLocal", sessionmaker(bind=engine, expire_on_commit=False)
+    )
+    action = '{"tool":"read_file","arguments":{"name":"numbers.txt"}}'
+    responses = iter([action + action, '{"final":"192"}'])
+    executed = []
+    original_tool = agent_api._safe_tool
+
+    async def fake_call(*_args, **_kwargs):
+        return {
+            "text": next(responses),
+            "usage": {"input_tokens": 2, "output_tokens": 3},
+            "latency_ms": 1,
+            "cost": {"estimated_usd": 0},
+        }
+
+    def counted_tool(name, arguments, spec):
+        executed.append(name)
+        return original_tool(name, arguments, spec)
+
+    monkeypatch.setattr(agent_api, "_model_call", fake_call)
+    monkeypatch.setattr(agent_api, "_safe_tool", counted_tool)
+    result = await agent_api._run_agent(
+        "missing",
+        AgentCreate(
+            model_key="ollama:test",
+            goal="Sum numbers",
+            files={"numbers.txt": "14, 92, 31, 7, 48"},
+            max_steps=2,
+        ),
+        Settings(),
+    )
+    assert result["status"] == "complete"
+    assert executed == ["read_file"]
+    assert result["steps"][0]["tool_result"] == {"content": "14, 92, 31, 7, 48"}
+    assert len(result["steps"][0]["attempts"]) == 1
+
+
 @pytest.mark.asyncio
 async def test_agent_saves_real_tool_trace_and_usage(monkeypatch) -> None:
     engine = create_engine(

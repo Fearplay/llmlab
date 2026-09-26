@@ -7,6 +7,7 @@ import { useApp } from "@/components/app-provider";
 import { AnswerReveal, Button, HelpLabel, InfoTip, MetricLabel, ModeSelector, Notice, PageHeader, Panel, ProvenanceStrip, RunStatus } from "@/components/ui";
 import type { ExecutionMode } from "@/lib/types";
 import { getTokenizer, type Tokenizer } from "@/lib/tokenizer";
+import { PromptCompare } from "./extra-experiments";
 
 const example = {
   cs: { system: "Odpovídej stručně a jasně. Pokud něco nevíš, řekni to.", prompt: "Vysvětli začátečníkovi jednou větou, co je kontextové okno modelu." },
@@ -126,6 +127,7 @@ export function PromptTokensPage() {
       {result ? <div className="output-layout"><div className="output-answer"><RunStatus status="completed" /><AnswerReveal answer={result.text} locale={locale} initiallyOpen code /></div><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{resultSchemaRequested ? schemaValid === null ? t("labs.schemaNotChecked") : schemaValid ? t("common.valid") : t("common.invalid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
       {result && <p className="prompt-muted">{result.applied_settings ? `${t("labs.appliedSettings")}: ${JSON.stringify(result.applied_settings)}` : t("labs.settingsNotConfirmed")}</p>}
     </Panel>
+    <PromptCompare />
   </>;
 }
 

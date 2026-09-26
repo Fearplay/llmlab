@@ -26,7 +26,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "./app-provider";
+import { InfoTip } from "./ui";
 import { labEntries, labGroups, labHref, type LabGroup } from "@/lib/lab-catalog";
+import { missionBySlug } from "@/lib/learning-content";
 
 const primary = [
   { href: "/", key: "overview", icon: Gauge },
@@ -76,7 +78,7 @@ function ModelPicker() {
       <span className="model-picker-current">{selectedModel ? selectedModel.id : modelsLoading ? (locale === "cs" ? "Načítám modely…" : "Loading models…") : (locale === "cs" ? "Vybrat model" : "Choose model")}</span><ChevronDown size={15} />
     </button>
     {open && <div className="model-picker-popover">
-      <label className="model-picker-search"><Search size={15} /><span className="sr-only">{label}</span><input autoFocus value={search} placeholder={locale === "cs" ? "Hledat model…" : "Search models…"} onChange={(event) => { setSearch(event.target.value); setActiveIndex(0); }} onKeyDown={(event) => {
+      <label className="model-picker-search"><Search size={15} /><span className="sr-only">{label}</span><InfoTip label={label} helpKey="field.modelSearch" context="field" /><input autoFocus value={search} placeholder={locale === "cs" ? "Hledat model…" : "Search models…"} onChange={(event) => { setSearch(event.target.value); setActiveIndex(0); }} onKeyDown={(event) => {
         if (event.key === "ArrowDown") { event.preventDefault(); setActiveIndex((index) => Math.min(index + 1, visible.length - 1)); }
         if (event.key === "ArrowUp") { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)); }
         if (event.key === "Enter" && visible[activeIndex]?.available) { setSelectedModelKey(visible[activeIndex].key); setOpen(false); }
@@ -99,6 +101,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeLab = labEntries.find((item) => pathname === labHref(item.slug));
   const [openGroup, setOpenGroup] = useState<LabGroup | null>(activeLab?.group ?? null);
   const [query, setQuery] = useState("");
+  const [returnMission, setReturnMission] = useState<string | null>(null);
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("mission");
+    const valid = slug && missionBySlug(slug)?.href === pathname ? slug : null;
+    if (valid) {
+      try { sessionStorage.setItem(`llmlab.missionVisited.${valid}`, "1"); } catch { /* Mission still works in memory. */ }
+    }
+    queueMicrotask(() => setReturnMission(valid));
+  }, [pathname]);
   useEffect(() => {
     if (activeLab) queueMicrotask(() => { setLabsOpen(true); setOpenGroup(activeLab.group); });
   }, [activeLab]);
@@ -156,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="topbar">
           <div className="breadcrumbs"><strong>{activeLab ? locale === "cs" ? activeLab.cs : activeLab.en : pathname === "/ai-lab" ? t("nav.aiLab") : pathname === "/" ? t("nav.overview") : t(`nav.${routeKey(pathname)}`)}</strong></div>
           <div className="search-shell">
-            <label className="global-search"><Search size={16} /><span className="sr-only">{t("app.search")}</span><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { router.push(searchResults[0].href); setQuery(""); } }} placeholder={t("app.search")} /></label>
+            <label className="global-search"><Search size={16} /><span className="sr-only">{t("app.search")}</span><InfoTip label={t("app.search")} helpKey="field.globalSearch" context="field" /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && searchResults[0]) { router.push(searchResults[0].href); setQuery(""); } }} placeholder={t("app.search")} /></label>
             {query && <div className="search-results">{searchResults.length ? searchResults.map((item) => <Link key={item.href} href={item.href} onClick={() => setQuery("")}><span>{item.label}</span><small className="mono">{item.href}</small></Link>) : <span>{t("common.noResults")}</span>}</div>}
           </div>
           <ModelPicker />
@@ -170,7 +181,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <Link href="/settings" className="avatar" aria-label={t("common.userMenu")}>U</Link>
         </header>
-        <main id="main-content" className="page-content">{children}</main>
+        <main id="main-content" className="page-content">{returnMission && <div className="mission-return"><span>{locale === "cs" ? "Právě plníte vedenou misi" : "You are working on a guided mission"}</span><Link href={`/docs/learn/${returnMission}`}>{locale === "cs" ? "Zpět k otázce →" : "Back to the question →"}</Link></div>}{children}</main>
       </div>
     </div>
   );
@@ -178,7 +189,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function routeKey(pathname: string) {
   if (pathname === "/knowledge-base") return "knowledgeBase";
-  if (pathname === "/docs") return "documentation";
+  if (pathname.startsWith("/docs")) return "documentation";
   if (pathname.includes("prompt-tokens")) return "promptTokens";
   if (pathname.includes("embeddings")) return "embeddings";
   if (pathname.includes("rag")) return "rag";
