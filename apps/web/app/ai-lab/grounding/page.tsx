@@ -1,3 +1,3 @@
-import { redirect } from "next/navigation";
+import { ConceptLab } from "@/components/pages/concepts/concept-lab";
 
-export default function Page() { redirect("/ai-lab/rag"); }
+export default function Page() { return <ConceptLab slug="grounding" />; }

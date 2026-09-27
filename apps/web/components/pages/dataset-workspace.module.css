@@ -30,5 +30,8 @@
 .empty strong { color: var(--ink); font-size: 13px; }
 .empty p, .note { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
 .note a { display: inline-flex; align-items: center; gap: 4px; color: var(--blue); }
+.optional { border: 1px solid var(--line); padding: 10px 12px; font-size: 12px; }
+.optional summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.optional > div { display: grid; gap: 10px; padding-top: 13px; }
 @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
 @media (max-width: 550px) { .upload { flex-wrap: wrap; } .upload input { max-width: 100%; margin: 0; } }

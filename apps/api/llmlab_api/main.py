@@ -13,7 +13,16 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
-from . import agent_api, game_api, lab_api, model_catalog, pricing, secret_settings, user_rag_api
+from . import (
+    agent_api,
+    game_api,
+    inference_api,
+    lab_api,
+    model_catalog,
+    pricing,
+    secret_settings,
+    user_rag_api,
+)
 from .contracts import (
     EmbeddingRequest,
     EmbeddingResult,
@@ -66,6 +75,7 @@ app.include_router(lab_api.router)
 app.include_router(game_api.router)
 app.include_router(user_rag_api.router)
 app.include_router(agent_api.router)
+app.include_router(inference_api.router)
 
 
 @app.get("/health/live", tags=["health"])

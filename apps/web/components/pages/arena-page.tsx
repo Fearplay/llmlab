@@ -23,6 +23,9 @@ export function ArenaPage() {
   const [maxTokens, setMaxTokens] = useState(512);
   const [judgeKey, setJudgeKey] = useState("");
   const [orderCheck, setOrderCheck] = useState(false);
+  const [blind, setBlind] = useState(false);
+  const [blindPairs, setBlindPairs] = useState<Array<{ case_id: string; A: string; B: string }>>([]);
+  const [votes, setVotes] = useState<Record<string, { choice: string; models: { A: string; B: string }; votes: Record<string, number> }>>({});
   const [datasets, setDatasets] = useState<DatasetOption[]>([]);
   const [datasetId, setDatasetId] = useState("");
   const [run, setRun] = useState<ExperimentRecord | null>(null);
@@ -48,14 +51,19 @@ export function ArenaPage() {
     }, 1500);
     return () => window.clearTimeout(timer);
   }, [run, locale]);
+  useEffect(() => {
+    if (!blind || !run || run.status !== "completed") return;
+    fetchJson<{ pairs: Array<{ case_id: string; A: string; B: string }> }>(`/api/v1/experiments/${encodeURIComponent(run.id)}/blind`).then((value) => setBlindPairs(value.pairs)).catch((caught) => setError(errorMessage(caught, locale)));
+  }, [blind, run, locale]);
 
   const toggleModel = (key: string) => setSelectedKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : current.length < 8 ? [...current, key] : current);
   const submit = async () => {
-    if (selectedKeys.length < 2 || (!prompt.trim() && !datasetId) || maxTokens < 1 || maxTokens > 4096) return;
+    if (selectedKeys.length < 2 || (blind && selectedKeys.length !== 2) || (!prompt.trim() && !datasetId) || maxTokens < 1 || maxTokens > 4096) return;
     if (evidence.trim().split(/\n\s*\n/).filter(Boolean).length > 20) { setError(cs ? "Použij nejvýše 20 samostatných pasáží." : "Use at most 20 separate evidence passages."); return; }
     setError(null);
     setSubmitting(true);
     setRun(null);
+    setBlindPairs([]); setVotes({});
     try {
       const created = await fetchJson<ExperimentRecord>("/api/v1/experiments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         name: cs ? "Porovnání modelů" : "Model comparison", kind: "arena", model_keys: selectedKeys,
@@ -67,6 +75,13 @@ export function ArenaPage() {
       setRun(created);
     } catch (caught) { setError(errorMessage(caught, locale)); }
     finally { setSubmitting(false); }
+  };
+  const vote = async (caseId: string, choice: "A" | "B" | "tie") => {
+    if (!run) return;
+    try {
+      const outcome = await fetchJson<{ choice: string; models: { A: string; B: string }; votes: Record<string, number> }>(`/api/v1/experiments/${encodeURIComponent(run.id)}/vote`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ case_id: caseId, choice }) });
+      setVotes((current) => ({ ...current, [caseId]: outcome }));
+    } catch (caught) { setError(errorMessage(caught, locale)); }
   };
 
   const results = run?.results ?? [];
@@ -98,22 +113,21 @@ export function ArenaPage() {
         <label className={styles.field}><HelpLabel label={cs ? "Podklady pro kontrolu tvrzení (volitelné)" : "Evidence for checking claims (optional)"} helpKey="field.sourceCorpus" /><textarea rows={2} value={evidence} onChange={(event) => setEvidence(event.target.value)} /></label>
       </div></section>
       <section className={styles.panel} aria-labelledby="arena-models"><div className={styles.panelHead}><h2 id="arena-models">{cs ? "Modely" : "Models"} <InfoTip label={cs ? "Výběr modelů" : "Model selection"} helpKey="field.modelSelection" context="field" /></h2><span className={styles.status}>{selectedKeys.length} {cs ? "vybrané" : "selected"}</span></div><div className={styles.panelBody}>
-        {available.length ? <div className={styles.modelList}>{available.map((item) => <label key={item.key} className={styles.modelRow}><input type="checkbox" checked={selectedKeys.includes(item.key)} disabled={selectedKeys.length >= 8 && !selectedKeys.includes(item.key)} onChange={() => toggleModel(item.key)} /><span><strong>{item.id}</strong><small>{item.provider} · {item.mode === "local" ? cs ? "lokálně" : "local" : "cloud"}</small></span></label>)}</div> : <div className={styles.empty}>{cs ? "Zatím nejsou dostupné alespoň dva generativní modely. Spusť Ollamu nebo přidej cloudový klíč v nastavení." : "There are not yet two available generation models. Start Ollama or add a cloud key in Settings."}</div>}
+        {available.length ? <div className={styles.modelList}>{available.map((item) => <label key={item.key} className={styles.modelRow}><input type="checkbox" checked={selectedKeys.includes(item.key)} disabled={selectedKeys.length >= 8 && !selectedKeys.includes(item.key)} onChange={() => toggleModel(item.key)} /><InfoTip label={cs ? `Model ${item.id}` : `Model ${item.id}`} helpKey="field.modelSelection" context="field" /><span><strong>{item.id}</strong><small>{item.provider} · {item.mode === "local" ? cs ? "lokálně" : "local" : "cloud"}</small></span></label>)}</div> : <div className={styles.empty}>{cs ? "Zatím nejsou dostupné alespoň dva generativní modely. Spusť Ollamu nebo přidej cloudový klíč v nastavení." : "There are not yet two available generation models. Start Ollama or add a cloud key in Settings."}</div>}
         <p className={styles.inlineNote}>{cs ? "Vyber alespoň dva. Cloudové požadavky mohou být zpoplatněny." : "Choose at least two. Cloud requests may incur charges."}</p>
         <div className={styles.twoFields}><Range label={cs ? "Teplota" : "Temperature"} value={temperature} max={2} step={0.1} onChange={setTemperature} /><Range label="Top-p" value={topP} max={1} step={0.05} onChange={setTopP} /></div>
         <label className={styles.field}><HelpLabel label={cs ? "Maximum výstupních tokenů" : "Maximum output tokens"} helpKey="prompt.maxTokens" /><input type="number" min={1} max={4096} value={maxTokens} onChange={(event) => setMaxTokens(Number(event.target.value))} /></label>
         <label className={styles.field}><HelpLabel label={cs ? "AI soudce (volitelné)" : "AI judge (optional)"} helpKey="field.aiJudge" /><select value={judgeKey} onChange={(event) => setJudgeKey(event.target.value)}><option value="">{cs ? "Bez soudce" : "No judge"}</option>{available.map((item) => <option key={item.key} value={item.key}>{item.provider}: {item.id}</option>)}</select><small>{cs ? "Hodnocení soudce je názor dalšího modelu a může mít vlastní cenu." : "A judge is another model's opinion and may add cost."}</small></label>
         <label className={styles.checkRow}><input type="checkbox" checked={orderCheck} onChange={(event) => setOrderCheck(event.target.checked)} /><HelpLabel label={cs ? "Ověřit vliv pořadí podkladů" : "Check evidence order effects"} helpKey="field.orderCheck" /></label>
-        <div className={styles.buttonRow}><button className={styles.primaryButton} disabled={submitting || selectedKeys.length < 2 || (!prompt.trim() && !datasetId) || maxTokens < 1 || maxTokens > 4096} onClick={() => void submit()}>{submitting ? cs ? "Spouštím…" : "Starting…" : cs ? "Spustit arénu" : "Run arena"}</button></div>
+        <label className={styles.checkRow}><input type="checkbox" checked={blind} onChange={(event) => { setBlind(event.target.checked); if (event.target.checked) setSelectedKeys((keys) => keys.slice(0, 2)); }} /><HelpLabel label={cs ? "Anonymní A/B: nejprve hlasovat, potom odhalit modely (přesně dva modely)" : "Blind A/B: vote before revealing models (exactly two models)"} helpKey="field.blindArena" /></label>
+        <div className={styles.buttonRow}><button className={styles.primaryButton} disabled={submitting || selectedKeys.length < 2 || (blind && selectedKeys.length !== 2) || (!prompt.trim() && !datasetId) || maxTokens < 1 || maxTokens > 4096} onClick={() => void submit()}>{submitting ? cs ? "Spouštím…" : "Starting…" : cs ? "Spustit arénu" : "Run arena"}</button></div>
       </div></section>
     </div>
     {error && <div className={styles.empty} role="alert">{error}</div>}
     {run && <section className={styles.panel} aria-labelledby="arena-results"><div className={styles.panelHead}><h2 id="arena-results">{cs ? "Výsledky" : "Results"}</h2><div className={styles.runProgress}><RunStatus status={run.status} /><span>{run.progress ?? 0}%</span></div></div><div className={styles.panelBody}>
       {run.error && <div className={styles.empty} role="alert">{run.error}</div>}
       {runningStatuses.has(run.status) && <p className={styles.inlineNote} role="status">{cs ? "Modely odpovídají. Výsledky se průběžně obnovují." : "Models are responding. Results refresh automatically."}</p>}
-      {complete.length > 0 && <div className={styles.verdicts}><Verdict label={cs ? "Kvalita" : "Quality"} value={qualityWinner ?? (run.metrics?.quality_available ? cs ? "Bez jasného vítěze" : "No clear winner" : cs ? "Bez referenčního skóre" : "No reference score")} /><Verdict label={cs ? "Nejrychlejší" : "Fastest"} value={fastest ?? "—"} /><Verdict label={cs ? "Nejnižší známá cena" : "Lowest known cost"} value={cheapest ?? "—"} /></div>}
-      {latencyResults.length > 1 && <div className={styles.chartList} aria-label={cs ? "Graf doby odpovědi" : "Response time chart"}>{latencyResults.map((item) => <div className={styles.chartRow} key={`${item.case_id ?? "one"}-${item.model_key}`}><span title={item.model_key}>{item.model_key}</span><div className={styles.chartTrack}><span style={{ width: `${Math.max(2, (item.latency_ms ?? 0) / maxLatency * 100)}%` }} /></div><strong>{item.latency_ms} ms</strong></div>)}</div>}
-      {results.length ? <div className={styles.resultGrid}>{results.map((item, index) => <ResultCard key={`${item.case_id ?? "one"}-${item.model_key}-${index}`} result={item} locale={locale} referenceAvailable={referenceAvailable} />)}</div> : <div className={styles.empty}>{cs ? "Čekám na první odpověď…" : "Waiting for the first answer…"}</div>}
+      {blind ? <div className={styles.resultGrid}>{blindPairs.map((pair) => <div key={pair.case_id} className={styles.resultCard}><h3>{pair.case_id}</h3><div className={styles.blindPair}><article><strong>A</strong><p>{pair.A}</p></article><article><strong>B</strong><p>{pair.B}</p></article></div>{votes[pair.case_id] ? <p className={styles.inlineNote}>{cs ? "Hlas" : "Vote"}: {votes[pair.case_id].choice} · A = {votes[pair.case_id].models.A} · B = {votes[pair.case_id].models.B} · {cs ? "celkem hlasů" : "total votes"}: {Object.values(votes[pair.case_id].votes).reduce((sum, value) => sum + value, 0)}</p> : <div className={styles.buttonRow}><button className={styles.secondaryButton} onClick={() => void vote(pair.case_id, "A")}>A</button><button className={styles.secondaryButton} onClick={() => void vote(pair.case_id, "B")}>B</button><button className={styles.secondaryButton} onClick={() => void vote(pair.case_id, "tie")}>{cs ? "Remíza" : "Tie"}</button></div>}</div>)}{!blindPairs.length && <p>{cs ? "Čekám na dvojici odpovědí…" : "Waiting for two answers…"}</p>}</div> : <>{complete.length > 0 && <div className={styles.verdicts}><Verdict label={cs ? "Kvalita" : "Quality"} value={qualityWinner ?? (run.metrics?.quality_available ? cs ? "Bez jasného vítěze" : "No clear winner" : cs ? "Bez referenčního skóre" : "No reference score")} /><Verdict label={cs ? "Nejrychlejší" : "Fastest"} value={fastest ?? "—"} /><Verdict label={cs ? "Nejnižší známá cena" : "Lowest known cost"} value={cheapest ?? "—"} /></div>}{latencyResults.length > 1 && <div className={styles.chartList} aria-label={cs ? "Graf doby odpovědi" : "Response time chart"}>{latencyResults.map((item) => <div className={styles.chartRow} key={`${item.case_id ?? "one"}-${item.model_key}`}><span title={item.model_key}>{item.model_key}</span><div className={styles.chartTrack}><span style={{ width: `${Math.max(2, (item.latency_ms ?? 0) / maxLatency * 100)}%` }} /></div><strong>{item.latency_ms} ms</strong></div>)}</div>}{results.length ? <div className={styles.resultGrid}>{results.map((item, index) => <ResultCard key={`${item.case_id ?? "one"}-${item.model_key}-${index}`} result={item} locale={locale} referenceAvailable={referenceAvailable} />)}</div> : <div className={styles.empty}>{cs ? "Čekám na první odpověď…" : "Waiting for the first answer…"}</div>}</>}
       <p className={styles.inlineNote}>{cs ? "Čas a cena mají vlastní pořadí. Faktickou správnost bez referenční odpovědi nebo důkazů neurčujeme." : "Speed and cost have separate rankings. We do not infer factual correctness without a reference or evidence."} <Link href="/history" className="link">{cs ? "Historie běhů" : "Run history"}</Link></p>
     </div></section>}
   </div>;
@@ -130,6 +144,7 @@ function ResultCard({ result, locale, referenceAvailable }: { result: Experiment
     <div className={styles.resultMeta}><span><strong>{result.latency_ms ?? "—"}</strong> ms</span><span>{cs ? "vstup" : "input"} <strong>{result.usage?.input_tokens ?? "—"}</strong></span><span>{cs ? "výstup" : "output"} <strong>{result.usage?.output_tokens ?? "—"}</strong></span><span>{cs ? "odhad ceny" : "cost estimate"} <strong>{formatCost(result.cost?.estimated_usd, locale)}</strong></span></div>
     {referenceAvailable && result.grade && <p className={styles.inlineNote}>{cs ? "Shoda s referencí" : "Reference match"}: {result.grade.passed ? cs ? "ano" : "yes" : cs ? "ne" : "no"} ({result.grade.method ?? "grade"}{typeof result.grade.score === "number" ? ` ${Math.round(result.grade.score * 100)}%` : ""})</p>}
     {result.judge && <p className={styles.inlineNote}>{cs ? "Názor AI soudce" : "AI judge opinion"}: {result.judge.opinion ?? "—"} · {formatCost(result.judge.cost?.estimated_usd, locale)}</p>}
+    {result.judge?.prompt && <details className={styles.inlineNote}><summary>{cs ? "Model a prompt soudce" : "Judge model and prompt"}</summary><p>{result.judge.model_key}</p><pre>{JSON.stringify(result.judge.prompt, null, 2)}</pre></details>}
     {result.order_check && <p className={styles.inlineNote}>{cs ? "Po prohození podkladů" : "After reversing evidence"}: {result.order_check.same_answer ? cs ? "stejná odpověď" : "same answer" : cs ? "jiná odpověď" : "different answer"}. {result.order_check.reversed_output}</p>}
   </article>;
 }

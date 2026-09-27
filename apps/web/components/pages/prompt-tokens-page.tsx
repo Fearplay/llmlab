@@ -2,10 +2,12 @@
 
 import { Play } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { AnswerReveal, Button, HelpLabel, InfoTip, MetricLabel, ModeSelector, Notice, PageHeader, Panel, ProvenanceStrip, RunStatus } from "@/components/ui";
 import type { ExecutionMode } from "@/lib/types";
+import { getTokenizer, type Tokenizer } from "@/lib/tokenizer";
+import { PromptCompare } from "./extra-experiments";
 
 const example = {
   cs: { system: "Odpovídej stručně a jasně. Pokud něco nevíš, řekni to.", prompt: "Vysvětli začátečníkovi jednou větou, co je kontextové okno modelu." },
@@ -44,7 +46,11 @@ export function PromptTokensPage() {
   const [schemaValid, setSchemaValid] = useState<boolean | null>(null);
   const [resultSchemaRequested, setResultSchemaRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const estimatedInputTokens = Math.max(0, Math.ceil((system.length + prompt.length) / 4) + (prompt ? 8 : 0));
+  const [encoder, setEncoder] = useState<Tokenizer | null>(null);
+  useEffect(() => { let active = true; getTokenizer("o200k_base").then((value) => { if (active) setEncoder(value); }).catch(() => undefined); return () => { active = false; }; }, []);
+  const systemTokens = encoder ? encoder.encode(system, [], []).length : 0;
+  const userTokens = encoder ? encoder.encode(prompt, [], []).length : 0;
+  const estimatedInputTokens = encoder ? systemTokens + userTokens + (prompt ? 8 : 0) : Math.max(0, Math.ceil((system.length + prompt.length) / 4) + (prompt ? 8 : 0));
   const contextWindow = selectedModel?.context_window;
   const contextShare = contextWindow ? Math.min(100, Math.round(estimatedInputTokens / contextWindow * 100)) : null;
   const fixture = mode === "fixture";
@@ -100,7 +106,9 @@ export function PromptTokensPage() {
         <div className="prompt-example-line"><span>{t("labs.writeOwnPrompt")}</span><button type="button" onClick={() => { setSystem(example[locale].system); setPrompt(example[locale].prompt); clearResult(); }}>{t("labs.loadExample")}</button></div>
         <label className="field"><HelpLabel label={t("labs.systemLabel")} helpKey="prompt.system" /><textarea rows={3} value={system} placeholder={t("labs.systemPlaceholder")} onChange={(event) => { setSystem(event.target.value); clearResult(); }} /></label>
         <label className="field"><HelpLabel label={t("labs.userMessage")} helpKey="prompt.message" /><textarea rows={7} value={prompt} placeholder={t("labs.promptPlaceholder")} onChange={(event) => { setPrompt(event.target.value); clearResult(); }} /></label>
-        <div className="token-ribbon" aria-label={t("labs.tokenPreview")}>{tokenizePreview(`${system} ${prompt}`).slice(0, 80).map((token, index) => <span className={["token-blue", "token-green", "token-orange", "token-violet"][index % 4]} key={`${index}-${token}`}>{token}</span>)}{!prompt && !system && <small>{t("labs.tokenPreviewEmpty")}</small>}</div>
+        <div className="token-ribbon" aria-label={t("labs.tokenPreview")}>{encoder ? encoder.encode(prompt, [], []).slice(0, 80).map((id, index) => <span title={`o200k_base: ${id}`} className={["token-blue", "token-green", "token-orange", "token-violet"][index % 4]} key={`${index}-${id}`}>{encoder.decode([id])}</span>) : <small>{locale === "cs" ? "Načítám skutečný tokenizer…" : "Loading real tokenizer…"}</small>}{!prompt && !system && <small>{t("labs.tokenPreviewEmpty")}</small>}</div>
+        <div className="message-structure" aria-label={locale === "cs" ? "Struktura zpráv požadavku" : "Request message structure"}>{(["system", "developer", "user", "assistant", "tool"] as const).map((role) => <div key={role} data-present={role === "system" ? !!system.trim() : role === "user" ? !!prompt.trim() : false}><strong>{role}</strong><span>{role === "system" && system.trim() ? systemTokens : role === "user" && prompt.trim() ? userTokens : "—"}</span></div>)}</div>
+        <p className="prompt-muted">{locale === "cs" ? "Zobrazené role odpovídají tomuto požadavku. Ostatní role se neodesílají. Počty textu jsou přesné pro o200k_base; režie zpráv poskytovatele je odhad." : "Shown roles match this request; other roles are not sent. Text counts are exact for o200k_base; provider message overhead is estimated."}</p>
         <div className="token-summary"><strong className="mono">≈ {estimatedInputTokens}</strong><span>{t("labs.estimatedTokens")}</span><InfoTip label={t("labs.estimatedTokens")} helpKey="prompt.tokens" context="metric" /><small>{t("labs.measuredNote")}</small></div>
         {contextWindow ? <div className="context-meter"><span>{t("labs.contextWindow")}: {contextWindow.toLocaleString(locale)} · {t("labs.estimatedUse")}: ≈ {contextShare}%</span><progress value={contextShare ?? 0} max={100} /></div> : <p className="prompt-muted">{t("labs.contextUnknown")}</p>}
       </Panel>
@@ -119,6 +127,7 @@ export function PromptTokensPage() {
       {result ? <div className="output-layout"><div className="output-answer"><RunStatus status="completed" /><AnswerReveal answer={result.text} locale={locale} initiallyOpen code /></div><dl className="usage-list"><div><dt><MetricLabel label={t("common.input")} helpKey="metric.inputTokens" /></dt><dd className="mono">{result.usage.input_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.output")} helpKey="metric.outputTokens" /></dt><dd className="mono">{result.usage.output_tokens} {t("common.tokens")}</dd></div><div><dt><MetricLabel label={t("common.latency")} helpKey="metric.latency" /></dt><dd className="mono">{result.latency_ms} ms</dd></div><div><dt><MetricLabel label={t("common.schema")} helpKey="metric.schema" /></dt><dd>{resultSchemaRequested ? schemaValid === null ? t("labs.schemaNotChecked") : schemaValid ? t("common.valid") : t("common.invalid") : t("common.off")}</dd></div></dl></div> : <p className="empty-hint">{t("labs.runForResult")}</p>}
       {result && <p className="prompt-muted">{result.applied_settings ? `${t("labs.appliedSettings")}: ${JSON.stringify(result.applied_settings)}` : t("labs.settingsNotConfirmed")}</p>}
     </Panel>
+    <PromptCompare />
   </>;
 }
 

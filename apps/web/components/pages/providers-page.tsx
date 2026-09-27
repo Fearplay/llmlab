@@ -24,7 +24,7 @@ export function ProvidersPage() {
       const next = await fetchJson<Catalog>(force ? "/api/v1/models?refresh=true" : "/api/v1/models");
       setCatalog(next);
       setError(null);
-      if (force) void refreshModels(true);
+      void refreshModels(force);
     } catch (caught) { setError(errorMessage(caught, locale)); }
     finally { setLoading(false); }
   }, [locale, refreshModels]);

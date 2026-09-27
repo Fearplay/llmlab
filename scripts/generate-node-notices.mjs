@@ -66,6 +66,18 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 `]];
   }
+  if (manifest.name.startsWith("@img/sharp-libvips-")) {
+    if (manifest.version !== "1.3.3") {
+      throw new Error(`Update libvips notices for version ${manifest.version}`);
+    }
+    return [[
+      "sharp-libvips 1.3.3 third-party notices",
+      readFileSync(join(repo, "licenses", "sharp-libvips-1.3.3-THIRD-PARTY-NOTICES.md"), "utf8"),
+    ]];
+  }
+  if (manifest.name === "js-tiktoken" && manifest.version === "1.0.21") {
+    return [["js-tiktoken MIT license (upstream repository)", readFileSync(join(repo, "licenses", "js-tiktoken-LICENSE"), "utf8")]];
+  }
   throw new Error(`No license or notice file for ${manifest.name}@${manifest.version}`);
 }
 
@@ -78,7 +90,7 @@ const entries = [...packages].map(([directory, manifest]) => {
     if (licensing === -1) throw new Error("Sharp copyright notice is unavailable");
     files.push(["README.md (licensing)", readme.slice(licensing)]);
   }
-  if (manifest.name.startsWith("@img/sharp-")) {
+  if (manifest.name.startsWith("@img/sharp-") && !manifest.name.startsWith("@img/sharp-libvips-")) {
     const readme = join(directory, "README.md");
     if (existsSync(readme)) files.push(["README.md (binary copyright and licensing)", readFileSync(readme, "utf8")]);
     const next = packageDirectory("next", web);

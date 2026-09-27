@@ -48,12 +48,12 @@ test("RAG source controls expose paste and upload without an API", async ({ page
   await expect(page.getByLabel("Document text")).toHaveValue("The return period is 21 days.");
 });
 
-test("field guide has nine lessons and opens its RAG exercise", async ({ page }) => {
+test("learning paths open their linked RAG exercise", async ({ page }) => {
   await page.goto("/docs");
-  await expect(page.getByRole("heading", { name: "LLM foundations" })).toBeVisible();
-  const lessons = page.locator(".lesson-step");
-  await expect(lessons).toHaveCount(9);
-  await lessons.nth(6).getByRole("link", { name: "Try it" }).click();
+  await expect(page.locator(".docs-tracks details")).toHaveCount(4);
+  await expect(page.locator(".docs-tracks summary").first()).toContainText("LLM foundations");
+  await page.locator(".docs-tracks summary").nth(1).click();
+  await page.locator(".lesson-step").filter({ has: page.getByRole("heading", { name: "RAG pipeline" }) }).getByRole("link", { name: "Try it" }).click();
   await expect(page).toHaveURL(/\/ai-lab\/rag$/);
   await expect(page.getByRole("heading", { name: "RAG with your documents" })).toBeVisible();
 });
@@ -82,7 +82,6 @@ test("legacy section URLs redirect to the current destinations", async ({ page }
   const aliases = [
     ["/experiments", "/history"],
     ["/knowledge-base", "/ai-lab/rag"],
-    ["/ai-lab/grounding", "/ai-lab/rag"],
     ["/ai-lab/training", "/ai-lab/flappy"],
   ] as const;
   for (const [oldPath, currentPath] of aliases) {

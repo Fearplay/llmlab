@@ -83,7 +83,13 @@ function RunEntry({ run, locale }: { run: ExperimentRecord; locale: "en" | "cs" 
 function SavedResult({ result, locale }: { result: ExperimentResult; locale: "en" | "cs" }) {
   return <article className={styles.resultCard}><h3>{result.model_key}</h3><RunStatus status={result.status} />{result.case_id && <small> {result.case_id}</small>}{result.output ? <AnswerReveal answer={result.output} locale={locale} /> : <p>{result.error ?? "—"}</p>}<div className={styles.resultMeta}><span>{result.latency_ms ?? "—"} ms</span><span>{result.usage?.input_tokens ?? "—"} / {result.usage?.output_tokens ?? "—"} {locale === "cs" ? "tokenů" : "tokens"}</span><span>{formatCost(result.cost?.estimated_usd, locale)}</span></div>
     {result.grade && <p className={styles.inlineNote}>{locale === "cs" ? "Hodnocení" : "Grade"}: {result.grade.method ?? "—"} · {typeof result.grade.score === "number" ? `${Math.round(result.grade.score * 100)}%` : "—"}</p>}
+    {result.grade?.reason && <p className={styles.inlineNote}>{result.grade.reason}</p>}
+    {result.grade?.error && <p className={styles.inlineNote} role="alert">{result.grade.error}</p>}
+    {result.grade?.model_key && <p className={styles.inlineNote}>{locale === "cs" ? "Model hodnotitele" : "Evaluator model"}: {result.grade.model_key}</p>}
+    {result.grade?.prompt && <details className={styles.inlineNote}><summary>{locale === "cs" ? "Prompt hodnotitele" : "Evaluator prompt"}</summary><pre>{result.grade.prompt}</pre></details>}
+    {result.grade?.forbidden_facts_found?.length ? <p className={styles.inlineNote}>{locale === "cs" ? "Nalezené zakázané informace" : "Forbidden facts found"}: {result.grade.forbidden_facts_found.join(", ")}</p> : null}
     {result.judge && <p className={styles.inlineNote}>{locale === "cs" ? "Názor AI soudce" : "AI judge opinion"}: {result.judge.opinion ?? "—"}</p>}
+    {result.judge?.prompt && <details className={styles.inlineNote}><summary>{locale === "cs" ? "Prompt AI soudce" : "AI judge prompt"}</summary><pre>{JSON.stringify(result.judge.prompt, null, 2)}</pre></details>}
     {result.order_check && <p className={styles.inlineNote}>{locale === "cs" ? "Při obráceném pořadí podkladů" : "With evidence order reversed"}: {result.order_check.same_answer ? locale === "cs" ? "stejná odpověď" : "same answer" : locale === "cs" ? "jiná odpověď" : "different answer"}. {result.order_check.reversed_output}</p>}
   </article>;
 }

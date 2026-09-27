@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppProvider } from "@/components/app-provider";
+import { AppProvider, useApp } from "@/components/app-provider";
 import { ProvidersPage } from "./providers-page";
 import { SettingsPage } from "./settings-page";
 
@@ -20,6 +20,26 @@ describe("provider settings", () => {
     expect(screen.getByText("Připojeno")).toBeInTheDocument();
     expect(screen.getByText("Nenastaveno")).toBeInTheDocument();
     expect(screen.queryByText("Fixture engine")).not.toBeInTheDocument();
+  });
+
+  it("updates the shared model picker catalog when the providers page reconnects", async () => {
+    const cloudCatalog = {
+      models: [...catalog.models, { key: "openai:gpt-test", provider: "openai", id: "gpt-test", mode: "cloud", capabilities: { generation: true }, available: true }],
+      providers: [...catalog.providers.slice(0, 1), { id: "openai", mode: "cloud", configured: true, reachable: true, detail: "1 models" }],
+    };
+    let sharedRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const sharedCatalog = init?.cache === "no-store";
+      if (sharedCatalog) sharedRequests += 1;
+      return new Response(JSON.stringify(sharedCatalog && sharedRequests === 1 ? catalog : cloudCatalog), { status: 200 });
+    }));
+    function CloudModelCount() {
+      const { models } = useApp();
+      return <span data-testid="cloud-model-count">{models.filter((model) => model.provider === "openai").length}</span>;
+    }
+    render(<AppProvider><ProvidersPage /><CloudModelCount /></AppProvider>);
+    await waitFor(() => expect(screen.getByTestId("cloud-model-count")).toHaveTextContent("1"));
+    expect(sharedRequests).toBeGreaterThanOrEqual(2);
   });
 
   it("saves a key through local API, clears the input, and never renders the saved value", async () => {

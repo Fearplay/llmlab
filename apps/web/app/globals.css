@@ -92,6 +92,24 @@ a { color: inherit; text-decoration: none; }
 .nav-group { margin-top: 4px; }
 .nav-group.group-active { color: white; }
 .nav-chevron { margin-left: auto; }
+.nav-lab-heading { display: flex; align-items: center; margin-top: 4px; }
+.nav-lab-heading > a { flex: 1; min-width: 0; }
+.nav-lab-heading > button { display: grid; place-items: center; width: 29px; height: 32px; flex: none; border: 0; color: #abb7c3; background: transparent; }
+.nav-lab-heading > button:hover, .nav-lab-group-trigger:hover { color: white; background: rgb(255 255 255 / 5%); }
+.nav-lab-groups { margin-left: 20px; border-left: 1px solid #3e4d5d; }
+.nav-lab-group-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 31px; padding: 5px 8px 5px 12px; border: 0; color: #b9c6d2; background: transparent; font-size: 12px; text-align: left; }
+.nav-lab-group .nav-subgroup { margin: 0 0 4px 9px; }
+.docs-tracks { display: grid; gap: 13px; }
+.docs-tracks > details { border: 1px solid var(--line); background: var(--paper); }
+.docs-tracks > details > summary { display: grid; grid-template-columns: 38px 1fr; gap: 2px 12px; align-items: baseline; padding: 15px 18px; cursor: pointer; list-style: none; }
+.docs-tracks > details > summary::-webkit-details-marker { display: none; }
+.docs-tracks > details > summary > span { grid-row: span 2; color: var(--blue); font-size: 12px; }
+.docs-tracks > details > summary > strong { font-size: 17px; font-weight: 500; }
+.docs-tracks > details > summary > small { color: var(--ink-soft); font-size: 12px; }
+.docs-tracks .lesson-path { margin: 0; padding: 0 18px 12px; }
+.message-structure { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.message-structure > div { display: flex; gap: 7px; padding: 6px 8px; border: 1px solid var(--line); color: var(--ink-faint); font: 11px "IBM Plex Mono", monospace; }
+.message-structure > div[data-present="true"] { border-color: var(--blue); color: var(--blue-deep); background: var(--blue-soft); }
 .nav-subgroup { margin: 1px 0 5px 21px; padding-left: 5px; border-left: 1px solid #3e4d5d; }
 .nav-sublink { min-height: 32px; padding: 6px 9px; font-size: 12px; }
 .nav-sublink.active::before { left: -6px; }
@@ -127,6 +145,9 @@ a { color: inherit; text-decoration: none; }
 .page-title-row { align-items: baseline; }
 .panel-title-row { flex: 1; }
 .field-help-label, .metric-help-label { width: fit-content; max-width: 100%; }
+.field-help-label { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.field-help-title { display: inline-flex; align-items: center; gap: 6px; }
+.field-help-example { color: var(--ink-soft); font-size: 11px; font-weight: 400; line-height: 1.4; text-transform: none; white-space: normal; }
 .control-with-help { width: fit-content; }
 .toggle-title { align-items: flex-start; }
 
@@ -891,7 +912,7 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
 .info-tip-popover { font-size: 13px; line-height: 1.55; }
 .info-tip-popover strong { font-size: 14px; }
 .info-tip-popover em b { font-size: 11px; }
-.info-tip-trigger { width: 19px; height: 19px; }
+.info-tip-trigger { width: 22px; height: 22px; padding: 0; }
 
 .lesson-path { display: grid; gap: 0; max-width: 1100px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); background: var(--paper); }
 .lesson-step { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: start; gap: 20px; padding: 21px 24px; border-bottom: 1px solid var(--line-soft); }
@@ -899,6 +920,19 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
 .lesson-number { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--blue); background: var(--blue-soft); color: var(--blue-deep); font-size: 14px; }
 .lesson-step h2 { margin: 0 0 5px; font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
 .lesson-step p { max-width: 68ch; margin: 0 0 8px; color: var(--ink-soft); font-size: 13px; line-height: 1.55; }
+.guided-missions { margin: 52px 0 72px; scroll-margin-top: 25px; }
+.guided-missions-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 25px; }
+.guided-missions-heading h2 { margin: 6px 0 8px; font-size: clamp(25px, 4vw, 36px); }
+.guided-missions-heading p { margin: 0; color: var(--ink-soft); line-height: 1.5; }
+.guided-missions-heading > strong { color: var(--blue); font: 16px "IBM Plex Mono", monospace; white-space: nowrap; }
+.guided-mission-track { margin: 18px 0; }
+.guided-mission-track h3 { font-size: 16px; }
+.guided-mission-track > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 9px; }
+.guided-mission-track a { display: grid; grid-template-columns: 20px 1fr 16px; gap: 5px 9px; align-items: center; padding: 13px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-decoration: none; }
+.guided-mission-track a:hover, .guided-mission-track a:focus-visible { border-color: var(--blue); }
+.guided-mission-track a > span { grid-row: span 2; color: var(--blue); }
+.guided-mission-track a > small { grid-column: 2; color: var(--ink-soft); line-height: 1.35; }
+.guided-mission-track a > svg { grid-column: 3; grid-row: 1 / 3; color: var(--blue); }
 .lesson-task { color: var(--ink); font-size: 12px; font-weight: 500; }
 .lesson-open { display: inline-flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--blue); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .lesson-open:hover, .prompt-example-line button:hover { text-decoration: underline; }
@@ -912,3 +946,5 @@ mark { padding: 1px; background: #ffe49a; color: inherit; }
   .lesson-open { grid-column: 2; margin-top: 0; }
   .prompt-example-line { align-items: flex-start; flex-direction: column; }
 }
+.mission-return { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; padding: 12px 15px; border: 1px solid var(--blue); background: color-mix(in srgb, var(--blue) 11%, var(--paper)); font-size: 13px; }
+.mission-return a { color: var(--blue); font-weight: 600; white-space: nowrap; }

@@ -1,0 +1,10 @@
+.action { min-height: 36px; padding: 8px 12px; border: 0; color: white; background: var(--blue); font-size: 12px; }
+.action:disabled { opacity: .55; cursor: not-allowed; }
+.action:hover:not(:disabled) { background: var(--blue-deep); }
+.error { color: var(--red); font-size: 12px; }
+.trace { display: grid; gap: 10px; margin: 0; padding-left: 22px; }
+.trace li { padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+.trace strong, .traceTitle { font-size: 12px; }
+.trace pre, .code { max-height: 240px; overflow: auto; padding: 11px; background: var(--code-bg); color: var(--code-ink); font: 11px/1.5 "IBM Plex Mono", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mcpHistory { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.mcpHistory span { padding: 5px 7px; background: var(--surface-muted); font: 10px "IBM Plex Mono", monospace; }

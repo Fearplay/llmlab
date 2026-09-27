@@ -74,3 +74,13 @@
 @keyframes turn { to { transform: rotate(360deg); } }
 @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
 @media (max-width: 590px) { .twoFields, .threeFields { grid-template-columns: 1fr; } .doc { flex-wrap: wrap; } .answerMeta { flex-wrap: wrap; } }
+.pipelineOptions { border: 1px solid var(--line); padding: 11px 13px; font-size: 12px; }
+.pipelineOptions summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.pipelineOptions > div { display: grid; gap: 12px; padding-top: 13px; }
+.pipelineTrace { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); background: var(--paper-strong); }
+.pipelineTrace h3 { margin: 0 0 6px; font-size: 13px; }
+.pipelineTrace details { border-top: 1px solid var(--line); padding: 8px 0; }
+.pipelineTrace summary { display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 12px; font-weight: 600; text-transform: capitalize; }
+.pipelineTrace summary span { font: 500 10px "IBM Plex Mono", monospace; color: var(--blue); }
+.pipelineTrace pre { max-height: 320px; overflow: auto; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.5 "IBM Plex Mono", monospace; background: var(--surface-muted); }
+.pipelineTrace a { color: var(--blue); font-size: 11px; }

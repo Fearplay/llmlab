@@ -1,0 +1,36 @@
+.page { max-width: 1200px; margin: 0 auto; }
+.header { padding: 20px 0 27px; }
+.breadcrumb { display: flex; gap: 9px; color: var(--ink-faint); font-size: 12px; }
+.breadcrumb a:hover { color: var(--blue); text-decoration: underline; }
+.header h1 { margin: 15px 0 7px; font-size: clamp(31px, 3.3vw, 46px); letter-spacing: -.05em; line-height: 1.08; font-weight: 500; }
+.header > p { max-width: 680px; margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.5; }
+.lesson { display: flex; gap: 13px; padding: 13px 16px; border-left: 3px solid var(--blue); background: var(--blue-soft); font-size: 12px; line-height: 1.45; }
+.lesson strong { flex: none; }
+.experiment { display: grid; grid-template-columns: minmax(280px, .75fr) minmax(0, 1.25fr); align-items: start; gap: 18px; margin-top: 20px; }
+.experiment > div { min-width: 0; display: grid; gap: 18px; }
+.panel { min-width: 0; padding: 20px; border: 1px solid var(--line); background: var(--paper); }
+.panel h2 { margin: 0 0 17px; font-size: 17px; font-weight: 500; letter-spacing: -.025em; }
+.panel p { line-height: 1.5; }
+.field { display: grid; gap: 5px; margin-bottom: 15px; color: var(--ink-soft); font-size: 12px; }
+.field > span { color: var(--ink); font-weight: 500; }
+.field input, .field textarea, .field select { width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); background: var(--paper-strong); color: var(--ink); font-size: 13px; }
+.field textarea { resize: vertical; line-height: 1.45; }
+.field input[type="range"] { padding: 0; }
+.field input[type="checkbox"] { width: auto; min-height: 0; }
+.readout { display: flex; flex-direction: column; gap: 2px; padding: 13px 15px; background: var(--surface-muted); }
+.readout > span { color: var(--ink-soft); font-size: 11px; }
+.readout strong { font: 500 24px "IBM Plex Mono", monospace; letter-spacing: -.04em; }
+.readout small { color: var(--ink-faint); font-size: 11px; }
+.note { margin: 13px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.bars { display: grid; gap: 8px; }
+.barRow { display: grid; grid-template-columns: minmax(75px, 1fr) minmax(70px, 2fr) 42px; align-items: center; gap: 9px; font-size: 12px; }
+.barRow span { min-width: 0; overflow-wrap: anywhere; }
+.barRow strong { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; text-align: right; }
+.barTrack { height: 9px; background: var(--line-soft); }
+.barTrack i { display: block; height: 100%; background: var(--blue); transition: width 170ms ease; }
+.barTrack i.highlight { background: var(--green); }
+.footer { display: flex; justify-content: space-between; gap: 10px; padding: 25px 0 15px; }
+.footer a { display: inline-flex; align-items: center; gap: 5px; color: var(--blue-deep); font-size: 12px; }
+.footer a:hover { text-decoration: underline; }
+@media (max-width: 800px) { .experiment { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .lesson { flex-direction: column; gap: 4px; } .panel { padding: 15px; } }

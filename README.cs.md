@@ -1,6 +1,6 @@
 # LLMLab
 
-Lokální laboratoř pro pochopení a porovnávání jazykových modelů. Píšete skutečným modelům, ukládáte běhy a můžete zkoumat, jak se mění odpovědi při jiném promptu, nastavení, zdrojích nebo agentovi. Na první obrazovce nejsou žádné předstírané výsledky; příklad si načtete sami.
+Lokální laboratoř pro pochopení a porovnávání jazykových modelů. Píšete skutečným modelům, ukládáte běhy a můžete zkoumat, jak se mění odpovědi při jiném promptu, nastavení, zdrojích nebo agentovi. U polí vidíte krátké příklady; živé volání modelu se spustí až po kliknutí.
 
 [English](README.md)
 
@@ -54,7 +54,7 @@ V postranním menu jsou položky v tomto pořadí. **AI laboratoř** je rozbalov
 | Historie běhů | `/history` | Uložené běhy, podrobné výsledky a vstup do jejich porovnání. |
 | Cena a provoz | `/operations` | Běhy po dnech, tokeny podle modelů, stav poskytovatelů, ceník a známé odhady ceny API. Neznámá cena zůstává neznámá. |
 | Nastavení | `/settings` | Místní preference a správa připojení poskytovatelů. |
-| Dokumentace | `/docs` | Devět krátkých lekcí s odkazy do interaktivních laboratoří. |
+| Dokumentace | `/docs` | Čtyři výukové cesty s 26 vedenými misemi a volitelnou misí Flappy AI. Každá mise propojuje předpověď, pokus a krátkou kontrolní otázku. |
 
 Porovnání běhů má vlastní adresu `/experiments/compare`. Starší adresy `/experiments`, `/knowledge-base`, `/ai-lab/grounding` a `/ai-lab/training` přesměrovávají do současných sekcí.
 

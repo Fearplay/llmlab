@@ -19,6 +19,22 @@ describe("agent and safety labs", () => {
     expect(screen.getByDisplayValue("numbers.txt")).toBeInTheDocument();
   });
 
+  it("shows invalid_output as a failed attempt even when the technical run completed", async () => {
+    const item = {
+      id: "run_invalid", kind: "agent", status: "completed", model_key: "ollama:qwen-test",
+      spec: {}, results: [{ status: "invalid_output", answer: null, steps: [{ step: 1, raw_output: "bad JSON", error: "Neplatný výstup", attempts: [{ raw_output: "bad JSON" }, { raw_output: "still bad" }] }] }],
+      trace: [], metrics: {}, usage: { input_tokens: 20, output_tokens: 10, cost_usd: 0 }, progress: 100, error: null,
+      created_at: "2026-09-24T12:00:00Z",
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(String(input).includes("/models") ? catalog : [item]), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<AppProvider><AgentsPage /></AppProvider>);
+    const recent = await screen.findByRole("button", { name: /ollama:qwen-test.*Neúspěšný pokus/ });
+    fireEvent.click(recent);
+    expect(await screen.findByText("Pokus agenta se nepodařil")).toBeInTheDocument();
+    expect(screen.getByText("Pokus se nepodařil: neplatný výstup modelu.")).toBeInTheDocument();
+    expect(screen.getAllByText("Neplatný výstup").length).toBeGreaterThan(0);
+  });
+
   it("sends a model-selected attack with simulated defenses", async () => {
     const requests: Record<string, unknown>[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

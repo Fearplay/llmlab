@@ -1,0 +1,33 @@
+.chunkList, .hitList, .claimCards { display: grid; gap: 9px; margin-top: 15px; max-height: 580px; overflow: auto; }
+.chunkList article, .hitList article, .claimCards article { padding: 12px; border: 1px solid var(--line); background: var(--paper-strong); }
+.chunkList strong, .hitList strong { font-size: 12px; }
+.chunkList p, .hitList p, .claimCards p { margin: 6px 0; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.hitList header, .scores { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.hitList header span { color: var(--ink-faint); font: 10px "IBM Plex Mono", monospace; }
+.scores { color: var(--ink-soft); font: 11px "IBM Plex Mono", monospace; }
+.scores strong { color: var(--blue-deep); font: 500 11px "IBM Plex Mono", monospace; }
+.check { display: flex; align-items: center; gap: 7px; margin: 11px 0; font-size: 12px; }
+.queryList { display: grid; gap: 4px; padding: 9px; background: var(--surface-muted); font-size: 11px; }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.comparison h3 { margin: 0 0 7px; font-size: 12px; }
+.comparison > div > div { display: flex; justify-content: space-between; gap: 5px; padding: 8px; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.comparison span { color: var(--blue-deep); font-family: "IBM Plex Mono", monospace; }
+.comparison [data-removed="true"] { color: var(--ink-faint); text-decoration: line-through; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.evalRows { margin-top: 13px; }
+.evalRows details { padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.evalRows summary { cursor: pointer; }
+.evalRows summary strong { float: right; font-family: "IBM Plex Mono", monospace; }
+.claimCards h3 { margin: 0 0 6px; font-size: 13px; }
+.claimCards span { display: block; margin-top: 5px; font-size: 11px; }
+.claimCards [data-verdict="supported"] { color: var(--green); }
+.claimCards [data-verdict="unsupported"] { color: var(--orange); }
+.claimCards [data-verdict="contradicted"] { color: var(--red); }
+.link { display: inline-block; margin-top: 15px; color: var(--blue-deep); font-size: 12px; }
+.link:hover { text-decoration: underline; }
+.datasetEval { display: grid; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.datasetEval h3 { margin: 0; font-size: 14px; }
+.datasetEval p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
+.datasetEval button { justify-self: start; padding: 9px 12px; border: 0; color: white; background: var(--blue); font-size: 12px; cursor: pointer; }
+.datasetEval button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 520px) { .metrics { grid-template-columns: 1fr; } }

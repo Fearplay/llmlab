@@ -84,6 +84,19 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
         assert body["grounded"] is True
         assert body["citations"][0]["chunk_id"] == chunks[0]["id"]
         assert body["run_id"].startswith("run_")
+        assert [step["id"] for step in body["pipeline"]] == [
+            "document", "parsing", "chunking", "embedding", "index",
+            "query_transform", "retrieval", "reranking", "context", "llm", "answer",
+        ]
+        lexical = client.post("/api/v1/user-rag/search", json={
+            "question": "refund period", "document_ids": [document["id"]],
+            "retrieval_mode": "lexical", "rewritten_query": "refund 30 days",
+            "extra_queries": ["return policy"], "rerank_diversity": True,
+        })
+        assert lexical.status_code == 200, lexical.text
+        assert lexical.json()["retrieval_mode"] == "lexical"
+        assert len(lexical.json()["query_variants"]) == 3
+        assert lexical.json()["candidates"]
 
         pasted = "Refund policy applies to this item. " * 12
         text_request = {
