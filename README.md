@@ -45,14 +45,20 @@ The sidebar keeps these destinations in this order. **AI Lab** is an expandable 
 | AI Lab → Prompt & Tokens | `/ai-lab/prompt-tokens` | Run prompts with system instructions, temperature, top-p, output limits, stop sequences, and supported JSON schemas; inspect token estimates and actual usage. |
 | AI Lab → Embeddings | `/ai-lab/embeddings` | Compare the vectors for two texts using an available embedding model and inspect cosine similarity. |
 | AI Lab → RAG Pipeline | `/ai-lab/rag` | Paste text or upload PDF, DOCX, TXT, or Markdown; inspect chunking, indexing, retrieval, answer excerpts, and citations. Citations alone do not establish factual support. |
-| AI Lab → Safety & Injection | `/ai-lab/safety` | Try direct and document-borne prompt injections with a fake key and simulated operations; compare raw and filtered output. |
-| AI Lab → Agents | `/ai-lab/agents` | Give an agent a task and inspect bounded calls to simulated files, a simulated database, and a calculator, plus its trace and cost. |
-| AI Lab → Flappy AI | `/ai-lab/flappy` | Play or run random, rule, LLM, and trained DQN agents on seeded courses; inspect leaderboards, checkpoints, decisions, and replays. |
+| AI Lab → Safety & Injection | `/ai-lab/safety` | Try explained prompt injections and run three harmless probes against your own system prompt. |
+| AI Lab → Agents | `/ai-lab/agents` | Inspect simulated tools or let an agent read LLMLab documents and datasets. Every write to a document, dataset, or note pauses for one-step approval. |
+| AI Lab → Flappy AI | `/ai-lab/flappy` | Play prepared challenges and inspect replay decisions with pause, step controls, and speed selection. |
 | Reviews | `/reviews` | Mark saved model answers useful or not useful and store notes alongside the run. |
 | Run history | `/history` | Browse saved runs and open comparisons and detailed results. |
 | Cost & operations | `/operations` | Inspect daily runs, model token totals, provider status, price catalog, and known API cost estimates. Unknown prices remain unknown. |
-| Settings | `/settings` | Change local preferences and manage provider connections. |
-| Documentation | `/docs` | Follow four learning paths with 26 guided missions and an optional Flappy AI mission. Each mission asks for a prediction, an experiment, and a short check. |
+| Settings | `/settings` | Change local preferences, check API and model readiness, and export or restore a complete lab backup. |
+| Documentation | `/docs` | Follow guided missions, inspect a progress map based on real runs, and add personal glossary notes. |
+
+## Lab backups
+
+Use **Settings → Back up the entire lab** to download a versioned ZIP with database records, saved browser preferences and learning notes, uploaded document originals when available, and the Flappy DQN checkpoint. API keys, `.env`, and downloaded models are excluded. Select a ZIP to inspect its contents. **Back up and restore** downloads the current state first, then replaces local data. Restoration validates checksums and database shape before writing; failed database imports roll back. Documents created before original-file storage retain their extracted text and index, but cannot offer the old original for download.
+
+The local API exposes `/api/v1/backups/export`, `/inspect`, and `/restore`; `/api/v1/preflight`; document version routes under `/api/v1/user-documents/{id}/versions`; `/api/v1/agent/runs/{id}/approval`; and `/api/v1/agent/safety/assessments`. These routes also appear in the API reference at `http://127.0.0.1:8000/docs`.
 
 The run comparison has its own route at `/experiments/compare`. Older links to `/experiments`, `/knowledge-base`, `/ai-lab/grounding`, and `/ai-lab/training` redirect to their current sections.
 

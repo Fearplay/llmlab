@@ -4,6 +4,7 @@ import { Braces, Check, FileText, GitCompareArrows, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-provider";
 import { Button, HelpLabel, Notice, PageHeader, Panel, Select } from "@/components/ui";
+import { ModelAdvisor, PromptTools } from "./prompt-tools";
 
 const storageKey = "llmlab.promptVersions";
 
@@ -92,5 +93,7 @@ export function PromptsPage() {
         </Panel>
       </div>
     </div>
+    <PromptTools text={text} onApply={(value) => { setText(value); setSaved(false); }} />
+    <ModelAdvisor />
   </>;
 }

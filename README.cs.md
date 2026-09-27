@@ -47,14 +47,20 @@ V postranním menu jsou položky v tomto pořadí. **AI laboratoř** je rozbalov
 | AI laboratoř → Prompt a tokeny | `/ai-lab/prompt-tokens` | Spouštění promptů se systémovou instrukcí, teplotou, top-p, limitem výstupu, stop sekvencí a podporovaným JSON schématem; odhad i skutečná spotřeba tokenů. |
 | AI laboratoř → Embeddingy | `/ai-lab/embeddings` | Převod dvou textů dostupným embeddingovým modelem na vektory a porovnání kosinové podobnosti. |
 | AI laboratoř → RAG pipeline | `/ai-lab/rag` | Vložení textu nebo PDF, DOCX, TXT a Markdown souboru; kontrola chunků, indexace, nalezených úryvků, odpovědi a citací. Samotná citace nedokazuje správnost tvrzení. |
-| AI laboratoř → Bezpečnost a injection | `/ai-lab/safety` | Pokusy s přímým i dokumentovým podvrženým pokynem, falešným klíčem a simulovanými operacemi; srovnání původní a filtrované odpovědi. |
-| AI laboratoř → Agenti | `/ai-lab/agents` | Úkol pro agenta s omezenými simulovanými soubory, databází a kalkulačkou; viditelná stopa kroků a cena. |
-| AI laboratoř → Flappy AI | `/ai-lab/flappy` | Vlastní hra i náhodný, pravidlový, LLM a trénovaný DQN agent na tratích se seedem; žebříček, checkpointy, rozhodnutí a replay. |
+| AI laboratoř → Bezpečnost a injection | `/ai-lab/safety` | Vysvětlená galerie podvržených pokynů a tři neškodné testy vlastního systémového promptu. |
+| AI laboratoř → Agenti | `/ai-lab/agents` | Simulované nástroje nebo čtení dokumentů a datasetů LLMLab. Každý zápis do dokumentu, datasetu či poznámky čeká na samostatné schválení. |
+| AI laboratoř → Flappy AI | `/ai-lab/flappy` | Připravené výzvy a přehrávání rozhodnutí s pauzou, kroky a volbou rychlosti. |
 | Kontroly | `/reviews` | Ruční označení uložených odpovědí jako použitelných či nepoužitelných a uložení poznámky k běhu. |
 | Historie běhů | `/history` | Uložené běhy, podrobné výsledky a vstup do jejich porovnání. |
 | Cena a provoz | `/operations` | Běhy po dnech, tokeny podle modelů, stav poskytovatelů, ceník a známé odhady ceny API. Neznámá cena zůstává neznámá. |
-| Nastavení | `/settings` | Místní preference a správa připojení poskytovatelů. |
-| Dokumentace | `/docs` | Čtyři výukové cesty s 26 vedenými misemi a volitelnou misí Flappy AI. Každá mise propojuje předpověď, pokus a krátkou kontrolní otázku. |
+| Nastavení | `/settings` | Místní preference, kontrola dostupnosti API a modelů, úplná záloha a obnova laboratoře. |
+| Dokumentace | `/docs` | Vedené mise, mapa pokroku odvozená ze skutečných běhů a slovníček s osobními poznámkami. |
+
+## Záloha laboratoře
+
+V **Nastavení → Záloha celé laboratoře** stáhnete verziovaný ZIP s databázovými záznamy, uloženými preferencemi a výukovými poznámkami prohlížeče, dostupnými originály nahraných dokumentů a checkpointem Flappy DQN. API klíče, `.env` a stažené modely se nezahrnují. Po výběru ZIPu se nejprve ověří obsah. Tlačítko **Zálohovat a obnovit** nejdřív stáhne současný stav a potom nahradí místní data. Poškozený archiv se odmítne; při selhání zápisu se databáze vrátí do předchozího stavu. Starší dokument bez uloženého originálu se obnoví z textu a indexu, původní soubor však nebude ke stažení.
+
+Nová API zahrnují `/api/v1/backups/export`, `/inspect`, `/restore`, `/api/v1/preflight`, verze dokumentů pod `/api/v1/user-documents/{id}/versions`, schválení agenta `/api/v1/agent/runs/{id}/approval` a testy promptu `/api/v1/agent/safety/assessments`. Podrobnosti jsou na `http://127.0.0.1:8000/docs`.
 
 Porovnání běhů má vlastní adresu `/experiments/compare`. Starší adresy `/experiments`, `/knowledge-base`, `/ai-lab/grounding` a `/ai-lab/training` přesměrovávají do současných sekcí.
 

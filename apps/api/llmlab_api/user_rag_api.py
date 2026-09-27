@@ -1,6 +1,6 @@
 """User-owned RAG documents, retrieval and cited answers.
 
-Uploaded source bytes never leave this server. Only extracted text is persisted;
+Uploaded source bytes never leave this server. Original files and extracted text are persisted;
 embedding calls send each chunk to the provider selected by the user.
 """
 
@@ -16,8 +16,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib import import_module
 from typing import Any, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -26,7 +28,7 @@ from .contracts import EmbeddingRequest, ExecutionMode, GenerationRequest
 from .database import get_db
 from .knowledge import repository_root
 from .model_catalog import discover_models
-from .models import EmbeddingChunk, Run, UserDocument
+from .models import DocumentVersion, EmbeddingChunk, Run, UserDocument
 from .pricing import estimate_usage_cost
 from .providers import embed, generate
 from .rag import BM25
@@ -348,6 +350,7 @@ async def _index_document(
     embedding_model_key: str,
     db: Session,
     settings: Settings,
+    document_id: str | None = None,
 ) -> dict[str, Any]:
     await _validate_model(embedding_model_key, "embeddings", settings)
     slices = await _document_slices(
@@ -356,23 +359,52 @@ async def _index_document(
     vectors = await _embed_texts(
         [text[item.start : item.end] for item in slices], embedding_model_key, settings
     )
-    doc_id = f"doc_{uuid.uuid4().hex[:24]}"
-    document = UserDocument(
-        id=doc_id,
-        name=name,
-        media_type=media_type,
-        text=text,
-        metadata_json={
-            "strategy": strategy,
-            "chunk_size": chunk_size,
-            "overlap": overlap,
-            "embedding_model_key": embedding_model_key,
-            "chunk_count": len(slices),
-            "source_kind": source_kind,
-            "sha256": hashlib.sha256(source_bytes).hexdigest(),
-        },
+    document = db.get(UserDocument, document_id) if document_id else None
+    if document_id and document is None:
+        raise HTTPException(404, "Document not found")
+    doc_id = document_id or f"doc_{uuid.uuid4().hex[:24]}"
+    previous_versions = db.scalars(
+        select(DocumentVersion).where(DocumentVersion.document_id == doc_id)
+    ).all()
+    version_number = max((item.version for item in previous_versions), default=0) + 1
+    version_id = f"ver_{uuid.uuid4().hex[:24]}"
+    metadata = {
+        "strategy": strategy,
+        "chunk_size": chunk_size,
+        "overlap": overlap,
+        "embedding_model_key": embedding_model_key,
+        "chunk_count": len(slices),
+        "source_kind": source_kind,
+        "sha256": hashlib.sha256(source_bytes).hexdigest(),
+        "version": version_number,
+        "version_id": version_id,
+    }
+    if document is None:
+        document = UserDocument(
+            id=doc_id, name=name, media_type=media_type, text=text, metadata_json=metadata
+        )
+        db.add(document)
+    else:
+        for old in db.scalars(
+            select(EmbeddingChunk).where(EmbeddingChunk.collection == f"user:{doc_id}")
+        ).all():
+            db.delete(old)
+        document.name = name
+        document.media_type = media_type
+        document.text = text
+        document.metadata_json = metadata
+    db.add(
+        DocumentVersion(
+            id=version_id,
+            document_id=doc_id,
+            version=version_number,
+            name=name,
+            media_type=media_type,
+            text=text,
+            original=source_bytes,
+            metadata_json=metadata,
+        )
     )
-    db.add(document)
     for item, vector in zip(slices, vectors, strict=True):
         page = next(
             (page["page"] for page in pages if page["start"] <= item.start < page["end"]), None
@@ -386,6 +418,7 @@ async def _index_document(
                 embedding=vector,
                 metadata_json={
                     "document_id": doc_id,
+                    "document_version_id": version_id,
                     "start": item.start,
                     "end": item.end,
                     "page": page,
@@ -395,6 +428,109 @@ async def _index_document(
         )
     db.commit()
     return {"document": _document_view(document)}
+
+
+@router.get("/user-documents/{document_id}/versions")
+def list_document_versions(document_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    rows = db.scalars(
+        select(DocumentVersion)
+        .where(DocumentVersion.document_id == document_id)
+        .order_by(DocumentVersion.version.desc())
+    ).all()
+    if not rows:
+        raise HTTPException(404, "Document versions not found")
+    return {
+        "versions": [
+            {
+                "id": row.id,
+                "document_id": row.document_id,
+                "version": row.version,
+                "name": row.name,
+                "created_at": row.created_at.isoformat(),
+                "has_original": row.original is not None,
+                "sha256": row.metadata_json.get("sha256"),
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.get("/user-documents/{document_id}/versions/{version_id}/original")
+def download_document_version(
+    document_id: str, version_id: str, db: Session = Depends(get_db)
+) -> Response:
+    row = db.get(DocumentVersion, version_id)
+    if row is None or row.document_id != document_id:
+        raise HTTPException(404, "Document version not found")
+    if row.original is None:
+        raise HTTPException(404, "Original file was not stored for this legacy version")
+    safe_name = quote(ntpath.basename(row.name), safe="")
+    return Response(
+        row.original,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}"},
+    )
+
+
+@router.post("/user-documents/{document_id}/versions/text", status_code=201)
+async def create_text_version(
+    document_id: str,
+    request: TextDocumentRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    return await _index_document(
+        name=request.name.strip(),
+        media_type="txt",
+        text=request.text,
+        pages=[],
+        source_bytes=request.text.encode("utf-8"),
+        source_kind="pasted",
+        strategy=request.strategy,
+        chunk_size=request.chunk_size,
+        overlap=request.overlap,
+        embedding_model_key=request.embedding_model_key,
+        db=db,
+        settings=settings,
+        document_id=document_id,
+    )
+
+
+@router.post("/user-documents/{document_id}/versions", status_code=201)
+async def upload_document_version(
+    document_id: str,
+    file: UploadFile = File(...),
+    strategy: Strategy = Form("fixed"),
+    chunk_size: int = Form(450, ge=40, le=2000),
+    overlap: int = Form(80, ge=0, le=500),
+    embedding_model_key: str = Form(...),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    name = ntpath.basename(file.filename or "")
+    if not name:
+        raise HTTPException(422, "Choose a named document")
+    data = await file.read(MAX_FILE_BYTES + 1)
+    if len(data) > MAX_FILE_BYTES:
+        raise HTTPException(413, "File exceeds 10 MB")
+    text, pages = _extract(name, data)
+    if not text.strip():
+        raise HTTPException(422, "No selectable text found")
+    return await _index_document(
+        name=name,
+        media_type=name.rsplit(".", 1)[-1].lower(),
+        text=text,
+        pages=pages,
+        source_bytes=data,
+        source_kind="file",
+        strategy=strategy,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        embedding_model_key=embedding_model_key,
+        db=db,
+        settings=settings,
+        document_id=document_id,
+    )
 
 
 @router.post("/user-documents/text", status_code=201)
@@ -559,6 +695,9 @@ async def _retrieve(query: UserRagQuery, db: Session, settings: Settings) -> dic
             {
                 "chunk_id": row.id,
                 "document_id": meta["document_id"],
+                "document_version_id": meta.get(
+                    "document_version_id", f"legacy_{meta['document_id']}"
+                ),
                 "document_name": docs[meta["document_id"]].name,
                 "text": row.content,
                 "start": meta["start"],
@@ -627,8 +766,70 @@ async def ask_user_documents(
     await _validate_model(query.generation_model_key, "generation", settings)
     search = await _retrieve(query, db, settings)
     hits = search["hits"]
-    if not hits:
-        raise HTTPException(409, "No matching excerpts found. Try another question.")
+    used_versions = sorted({(hit["document_id"], hit["document_version_id"]) for hit in hits})
+    if not hits or hits[0]["score"] < 0.14:
+        provider, model, mode = _parts(query.generation_model_key)
+        spec = query.model_dump(mode="json")
+        spec["document_versions"] = [
+            {"document_id": document_id, "version_id": version_id}
+            for document_id, version_id in used_versions
+        ]
+        run_id = f"run_{uuid.uuid4().hex[:12]}"
+        answer = "I don't know: the selected documents contain no sufficiently relevant evidence."
+        abstain_pipeline = [
+            {"id": "retrieval", "data": {"candidates": search["candidates"], "threshold": 0.14}},
+            {"id": "answer", "data": {"abstained": True, "text": answer}},
+        ]
+        db.add(
+            Run(
+                id=run_id,
+                kind="rag",
+                name="RAG dotaz",
+                status="completed",
+                mode=mode.value,
+                provider=provider,
+                model=model,
+                dataset_version="none",
+                prompt_version="user-rag-v1",
+                evaluator_versions=[],
+                config_hash=hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest(),
+                git_sha=settings.git_sha,
+                progress=100,
+                usage={"input_tokens": 0, "output_tokens": 0},
+                spec=spec,
+                results=[
+                    {
+                        "model_key": query.generation_model_key,
+                        "case_id": "rag-1",
+                        "status": "completed",
+                        "output": answer,
+                        "abstained": True,
+                    }
+                ],
+                metrics={"abstained": True, "factual_support_verified": False},
+                trace=abstain_pipeline,
+                completed_at=datetime.now(UTC),
+            )
+        )
+        db.commit()
+        return {
+            "answer": answer,
+            "question": query.question,
+            "sources": hits,
+            "citations": [],
+            "claim_support": [],
+            "abstained": True,
+            "grounded": False,
+            "citation_markers_valid": False,
+            "grounding_status": "insufficient_evidence",
+            "citation_warning": None,
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+            "model_key": query.generation_model_key,
+            "run_id": run_id,
+            "retrieval": search,
+            "pipeline": abstain_pipeline,
+            "latency_ms": round((time.perf_counter() - started) * 1000),
+        }
     context = "\n\n".join(
         f"[{index}] {hit['document_name']} (chunk {hit['chunk_id']}, "
         f"page {hit['page'] or 'n/a'}, chars {hit['start']}-{hit['end']}):\n{hit['text']}"
@@ -636,6 +837,10 @@ async def ask_user_documents(
     )
     provider, model, mode = _parts(query.generation_model_key)
     spec = query.model_dump(mode="json")
+    spec["document_versions"] = [
+        {"document_id": document_id, "version_id": version_id}
+        for document_id, version_id in used_versions
+    ]
     run_id = f"run_{uuid.uuid4().hex[:12]}"
     run = Run(
         id=run_id,
@@ -694,6 +899,7 @@ async def ask_user_documents(
     valid = {number for number in used if 1 <= number <= len(hits)}
     citations = [{"marker": f"[{number}]", **hits[number - 1]} for number in sorted(valid)]
     grounded = bool(citations) and used == valid
+    claim_support = _exact_claim_support(result.text, hits)
     usage = result.usage.model_dump()
     document_rows = db.scalars(select(UserDocument)).all()
     included = [item for item in document_rows if item.id in {hit["document_id"] for hit in hits}]
@@ -701,7 +907,12 @@ async def ask_user_documents(
         {
             "id": "document",
             "data": [
-                {"id": item.id, "name": item.name, "media_type": item.media_type}
+                {
+                    "id": item.id,
+                    "name": item.name,
+                    "media_type": item.media_type,
+                    "version_id": item.metadata_json.get("version_id"),
+                }
                 for item in included
             ],
         },
@@ -765,9 +976,14 @@ async def ask_user_documents(
             "usage": usage,
             "cost": estimate_usage_cost(query.generation_model_key, usage),
             "citations": citations,
+            "document_versions": spec["document_versions"],
         }
     ]
-    run.metrics = {"citation_markers_valid": grounded, "factual_support_verified": False}
+    run.metrics = {
+        "citation_markers_valid": grounded,
+        "factual_support_verified": bool(claim_support)
+        and all(item["verified"] for item in claim_support),
+    }
     run.trace = pipeline
     run.usage = usage
     run.status = "completed"
@@ -779,9 +995,17 @@ async def ask_user_documents(
         "question": query.question,
         "sources": [{"marker": f"[{index}]", **hit} for index, hit in enumerate(hits, start=1)],
         "citations": citations,
+        "claim_support": claim_support,
+        "abstained": False,
         "grounded": grounded,
         "citation_markers_valid": grounded,
-        "grounding_status": "citations_present_unverified" if grounded else "uncited",
+        "grounding_status": (
+            "exact_text_supported"
+            if claim_support and all(item["verified"] for item in claim_support)
+            else "citations_present_unverified"
+            if grounded
+            else "uncited"
+        ),
         "citation_warning": None
         if citations and used == valid
         else ("Model did not provide valid citations; check the source excerpts."),
@@ -792,3 +1016,39 @@ async def ask_user_documents(
         "pipeline": pipeline,
         "latency_ms": round((time.perf_counter() - started) * 1000),
     }
+
+
+def _exact_claim_support(answer: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Link only claims copied verbatim from a cited source; never infer support."""
+    claims: list[dict[str, Any]] = []
+    for match in re.finditer(r"[^.!?\n]+[.!?]?", answer):
+        raw = match.group().strip()
+        if not raw:
+            continue
+        markers = [int(value) for value in re.findall(r"\[(\d+)\]", raw)]
+        claim = re.sub(r"\[\d+\]", "", raw).strip()
+        claim = re.sub(r"\s+([.!?])", r"\1", claim)
+        candidate_hits = [hits[number - 1] for number in markers if 1 <= number <= len(hits)]
+        item: dict[str, Any] = {
+            "claim": claim,
+            "answer_start": match.start(),
+            "answer_end": match.end(),
+            "verified": False,
+        }
+        for hit in candidate_hits:
+            offset = hit["text"].casefold().find(claim.casefold())
+            if offset >= 0 and len(claim) >= 12:
+                item.update(
+                    {
+                        "verified": True,
+                        "document_id": hit["document_id"],
+                        "document_version_id": hit["document_version_id"],
+                        "chunk_id": hit["chunk_id"],
+                        "source_start": hit["start"] + offset,
+                        "source_end": hit["start"] + offset + len(claim),
+                        "quote": hit["text"][offset : offset + len(claim)],
+                    }
+                )
+                break
+        claims.append(item)
+    return claims

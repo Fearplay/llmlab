@@ -7,6 +7,7 @@ import { useApp } from "@/components/app-provider";
 import { PageHeader } from "@/components/ui";
 import { labEntries, labHref } from "@/lib/lab-catalog";
 import { learningProgressKey, learningTracks, missions } from "@/lib/learning-content";
+import { PersonalGlossary, ProgressMap } from "./learning-tools";
 
 const tracks = learningTracks.filter((track) => track.id !== "bonus");
 const extras: Record<string, { cs: string; en: string; href: string; summaryCs: string; summaryEn: string }> = {
@@ -52,7 +53,9 @@ export function DocsPage() {
   }, []);
   return <>
     <PageHeader title={cs ? "Výukové cesty" : "Learning paths"} description={cs ? "Čtyři cesty od prvního tokenu k provozu LLM aplikace. Každá lekce vede k pokusu." : "Four paths from the first token to running an LLM app. Every lesson leads to an experiment."} />
+    <ProgressMap />
     <div className="docs-tracks">{tracks.map((track, trackIndex) => <details key={track.en} open={trackIndex === 0}><summary><span className="mono">{String(trackIndex + 1).padStart(2, "0")}</span><strong>{cs ? track.cs : track.en}</strong><small>{track.slugs.length} {cs ? "lekcí" : "lessons"}</small></summary><ol className="lesson-path">{track.slugs.map((slug, index) => { const entry = labEntries.find((item) => item.slug === slug); const extra = extras[slug]; return <li key={slug} className="lesson-step"><span className="lesson-number mono">{String(index + 1).padStart(2, "0")}</span><div><h2>{cs ? entry?.cs ?? extra.cs : entry?.en ?? extra.en}</h2><p>{cs ? entry?.summaryCs ?? extra.summaryCs : entry?.summaryEn ?? extra.summaryEn}</p><span className="lesson-task">{tasks[slug][cs ? 0 : 1]}</span></div><Link href={extra?.href ?? labHref(slug)} className="lesson-open">{cs ? "Vyzkoušet" : "Try it"}<ArrowRight size={16} /></Link></li>; })}</ol></details>)}</div>
     <section id="missions" className="guided-missions"><div className="guided-missions-heading"><div><span className="eyebrow">{cs ? "UČ SE POKUSEM" : "LEARN BY DOING"}</span><h2>{cs ? "Vedené mise" : "Guided missions"}</h2><p>{cs ? "Předpověz výsledek, vyzkoušej změnu a ověř si, čemu rozumíš. Funguje i bez API klíče." : "Predict the result, try a change, and check your understanding. Works without an API key."}</p></div><strong>{completed.length} / {missions.length}</strong></div>{learningTracks.map((track) => <div key={track.id} className="guided-mission-track"><h3>{cs ? track.cs : track.en}</h3><div>{track.slugs.map((slug) => { const mission = missions.find((item) => item.slug === slug)!; return <Link key={slug} href={`/docs/learn/${slug}`}><span aria-hidden="true">{completed.includes(slug) ? "✓" : "○"}</span><strong>{mission.title[locale]}</strong><small>{mission.action[locale]}</small><ArrowRight size={15} /></Link>; })}</div></div>)}</section>
+    <PersonalGlossary />
   </>;
 }

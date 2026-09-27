@@ -1,0 +1,20 @@
+.panel { border: 1px solid var(--line); background: var(--paper); padding: 18px; display: grid; gap: 12px; }
+.panel h2, .panel h3 { margin: 0; }
+.panel p { margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.card { border: 1px solid var(--line-soft); background: var(--paper-strong); padding: 12px; display: grid; gap: 7px; min-width: 0; }
+.card strong { font-size: 13px; }
+.card small { color: var(--ink-soft); font-size: 11px; }
+.card a { color: var(--blue); font-size: 12px; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row button, .panel > button, .card button { min-height: 33px; border: 1px solid var(--line); padding: 6px 10px; background: var(--paper-strong); color: var(--ink); font-size: 12px; }
+.row button:hover, .card button:hover { border-color: var(--blue); }
+.field { display: grid; gap: 5px; font-size: 12px; }
+.field select, .field input, .field textarea { width: 100%; min-height: 34px; border: 1px solid var(--line); padding: 7px; background: var(--paper-strong); color: var(--ink); }
+.badge { display: inline-flex; width: fit-content; padding: 3px 7px; border: 1px solid var(--line); color: var(--ink-soft); font-size: 11px; }
+.badge[data-done="true"] { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+.error { color: var(--red) !important; }
+.success { color: var(--green) !important; }
+.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table th, .table td { padding: 8px; border-bottom: 1px solid var(--line-soft); text-align: left; }
+.table th { color: var(--ink-soft); }

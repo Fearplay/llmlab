@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
-import { AnswerReveal, PageHeader, RunStatus } from "@/components/ui";
+import { AnswerReveal, HelpLabel, PageHeader, RunStatus } from "@/components/ui";
 import { errorMessage, fetchJson, formatCost, formatDate, type EpisodeRecord, type ExperimentRecord, type ExperimentResult } from "./live-api";
 import styles from "./live-pages.module.css";
+import improvementStyles from "./improvements.module.css";
+
+type Filters = { kind: string; status: string; model: string; days: string };
+type SavedView = { name: string; filters: Filters };
+const emptyFilters: Filters = { kind: "", status: "", model: "", days: "" };
 
 export function HistoryPage() {
   const { locale } = useApp();
@@ -17,6 +22,24 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [runsError, setRunsError] = useState<string | null>(null);
   const [episodesError, setEpisodesError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [views, setViews] = useState<SavedView[]>([]);
+  const [viewName, setViewName] = useState("");
+  const [filterAsOf, setFilterAsOf] = useState(0);
+  useEffect(() => { if (filters.days) queueMicrotask(() => setFilterAsOf(Date.now())); }, [filters.days]);
+  useEffect(() => { try { const value = JSON.parse(localStorage.getItem("llmlab.savedViews.v1") ?? "[]") as unknown;
+    if (Array.isArray(value)) queueMicrotask(() => setViews(value.filter((item): item is SavedView =>
+      !!item && typeof item === "object" && typeof item.name === "string" && !!item.filters)));
+  } catch { /* Optional saved views. */ } }, []);
+  const saveView = () => {
+    if (!viewName.trim()) return;
+    const next = [...views.filter((item) => item.name !== viewName.trim()), { name: viewName.trim(), filters }];
+    localStorage.setItem("llmlab.savedViews.v1", JSON.stringify(next)); setViews(next); setViewName("");
+  };
+  const filteredRuns = runs.filter((run) => (!filters.kind || run.kind === filters.kind)
+    && (!filters.status || run.status === filters.status)
+    && (!filters.model || `${run.model ?? ""} ${JSON.stringify(run.spec?.model_keys ?? [])}`.toLowerCase().includes(filters.model.toLowerCase()))
+    && (!filters.days || !!run.created_at && filterAsOf - new Date(run.created_at).getTime() <= Number(filters.days) * 86_400_000));
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -43,11 +66,13 @@ export function HistoryPage() {
   return <div className={styles.layout}>
     <PageHeader title={cs ? "Historie běhů" : "Run history"} description={cs ? "Otevři uložený experiment nebo herní epizodu a prohlédni zadání, odpovědi, nastavení i spotřebu." : "Open a saved experiment or game episode to inspect inputs, answers, settings, and usage."} actions={<button className={styles.secondaryButton} onClick={() => void refresh()}>{cs ? "Obnovit" : "Refresh"}</button>} />
     <div className={styles.tabs} role="tablist" aria-label={cs ? "Typ záznamu" : "Record type"}><button role="tab" aria-selected={tab === "runs"} onClick={() => setTab("runs")}>{cs ? "Experimenty" : "Experiments"} ({runs.length})</button><button role="tab" aria-selected={tab === "episodes"} onClick={() => setTab("episodes")}>{cs ? "Herní epizody" : "Game episodes"} ({episodes.length})</button></div>
+    {tab === "runs" && <section className={improvementStyles.panel}><h2>{cs ? "Pohledy na historii" : "History views"}</h2><div className={improvementStyles.grid}><label className={improvementStyles.field}><HelpLabel label={cs ? "Typ pokusu" : "Run type"} helpKey="history.kindFilter" /><select value={filters.kind} onChange={(event) => setFilters({ ...filters, kind: event.target.value })}><option value="">{cs ? "Všechny" : "All"}</option>{Array.from(new Set(runs.map((item) => item.kind))).map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></label><label className={improvementStyles.field}><HelpLabel label={cs ? "Stav" : "Status"} helpKey="history.statusFilter" /><select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">{cs ? "Všechny" : "All"}</option>{["completed", "failed", "cancelled", "running"].map((item) => <option key={item} value={item}>{item}</option>)}</select></label><label className={improvementStyles.field}><HelpLabel label={cs ? "Model" : "Model"} helpKey="history.modelFilter" /><input value={filters.model} onChange={(event) => setFilters({ ...filters, model: event.target.value })} /></label><label className={improvementStyles.field}><HelpLabel label={cs ? "Období" : "Period"} helpKey="history.periodFilter" /><select value={filters.days} onChange={(event) => setFilters({ ...filters, days: event.target.value })}><option value="">{cs ? "Vše" : "All time"}</option><option value="7">{cs ? "Posledních 7 dní" : "Last 7 days"}</option><option value="30">{cs ? "Posledních 30 dní" : "Last 30 days"}</option></select></label></div><div className={improvementStyles.row}><label className={improvementStyles.field}><HelpLabel label={cs ? "Název pohledu" : "View name"} helpKey="history.viewName" /><input value={viewName} onChange={(event) => setViewName(event.target.value)} /></label><button onClick={saveView} disabled={!viewName.trim()}>{cs ? "Uložit pohled" : "Save view"}</button>{views.map((item) => <button key={item.name} onClick={() => setFilters(item.filters)}>{item.name}</button>)}<button onClick={() => setFilters(emptyFilters)}>{cs ? "Vymazat filtry" : "Clear filters"}</button></div><p>{filteredRuns.length} / {runs.length} {cs ? "záznamů" : "runs"}</p></section>}
     {loading && <div className={styles.empty} role="status">{cs ? "Načítám uložené záznamy…" : "Loading saved records…"}</div>}
     {!loading && tab === "runs" && <>
       {runsError && <div className={styles.empty} role="alert">{runsError}</div>}
       {!runsError && runs.length === 0 && <div className={styles.empty}>{cs ? "Historie je prázdná. Napiš první prompt nebo spusť arénu; výsledek se uloží sem." : "History is empty. Run your first prompt or arena comparison; its result will appear here."} <Link href="/ai-lab/prompt-tokens" className="link">{cs ? "Otevřít Prompt a tokeny" : "Open Prompt & Tokens"}</Link></div>}
-      <div className={styles.recordList}>{runs.map((run) => <RunEntry key={run.id} run={run} locale={locale} />)}</div>
+      <div className={styles.recordList}>{filteredRuns.map((run) => <RunEntry key={run.id} run={run} locale={locale} />)}</div>
+      <ModelGuess runs={runs} locale={locale} />
     </>}
     {!loading && tab === "episodes" && <>
       {episodesError && <div className={styles.empty} role="alert">{episodesError}</div>}
@@ -55,6 +80,23 @@ export function HistoryPage() {
       <div className={styles.recordList}>{episodes.map((episode) => <EpisodeEntry key={episode.id} episode={episodeDetails[episode.id] ?? episode} locale={locale} onOpen={() => void loadEpisode(episode.id)} />)}</div>
     </>}
   </div>;
+}
+
+function ModelGuess({ runs, locale }: { runs: ExperimentRecord[]; locale: "en" | "cs" }) {
+  const cs = locale === "cs";
+  const [index, setIndex] = useState(0);
+  const [guess, setGuess] = useState<string | null>(null);
+  const puzzles = runs.flatMap((run) => {
+    if (run.kind !== "arena" || run.status !== "completed") return [];
+    const results = (run.results ?? []).filter((item) => item.status === "completed" && !!item.output);
+    const byCase = new Map<string, ExperimentResult[]>();
+    for (const result of results) byCase.set(result.case_id ?? "one", [...(byCase.get(result.case_id ?? "one") ?? []), result]);
+    return [...byCase.values()].filter((items) => items.length >= 2 && items[0].model_key !== items[1].model_key)
+      .map((items) => ({ answers: [items[0].output!, items[1].output!], correct: items[0].model_key,
+        other: items[1].model_key, choices: [items[0].model_key, items[1].model_key] }));
+  });
+  const puzzle = puzzles[index % puzzles.length];
+  return <section className={improvementStyles.panel}><h2>{cs ? "Hádanka: který model odpověděl?" : "Guess which model answered"}</h2>{puzzle ? <><p>{cs ? "Přečtěte dvě anonymní odpovědi. Tipněte, který model napsal A; obě jména se odhalí až po tipu." : "Read two anonymous answers. Guess which model wrote A; both names appear only after your guess."}</p><div className={improvementStyles.grid}>{puzzle.answers.map((answer, answerIndex) => <div className={improvementStyles.card} key={answerIndex}><strong>{answerIndex === 0 ? "A" : "B"}</strong><p>{answer}</p></div>)}</div><p>{cs ? "Který model napsal A?" : "Which model wrote A?"}</p><div className={improvementStyles.row}>{puzzle.choices.map((choice) => <button key={choice} disabled={guess !== null} onClick={() => setGuess(choice)}>{choice}</button>)}</div>{guess && <p role="status">{guess === puzzle.correct ? (cs ? "Správně!" : "Correct!") : (cs ? "Tentokrát ne." : "Not this time.")} A = {puzzle.correct}; B = {puzzle.other}.</p>}<div className={improvementStyles.row}><button onClick={() => { setIndex((value) => value + 1); setGuess(null); }} disabled={puzzles.length < 2}>{cs ? "Další hádanka" : "Next puzzle"}</button></div></> : <p>{cs ? "Nejprve spusťte arénu se dvěma modely, aby vznikly anonymní odpovědi." : "Run an arena comparison with two models first."}</p>}</section>;
 }
 
 function RunEntry({ run, locale }: { run: ExperimentRecord; locale: "en" | "cs" }) {
