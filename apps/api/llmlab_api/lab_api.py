@@ -74,6 +74,7 @@ class RetrievalEvalCreate(BaseModel):
 class ExperimentCreate(BaseModel):
     name: str = Field(default="Model comparison", min_length=1, max_length=180)
     kind: Literal["arena", "evaluation"] = "arena"
+    blind: bool = False
     model_keys: list[str] = Field(min_length=1, max_length=8)
     prompt: str = Field(default="", max_length=8000)
     system_prompt: str = Field(default="Odpovídej jasně a stručně.", max_length=4000)
@@ -325,6 +326,11 @@ def evaluate_retrieval(
 
 
 def _run_view(row: Run) -> dict[str, Any]:
+    blind = row.kind == "arena" and bool((row.spec or {}).get("blind"))
+    spec = dict(row.spec or {})
+    if blind:
+        spec["model_keys"] = []
+        spec["judge_model_key"] = None
     return {
         "id": row.id,
         "kind": row.kind,
@@ -332,11 +338,11 @@ def _run_view(row: Run) -> dict[str, Any]:
         "status": row.status,
         "mode": row.mode,
         "provider": row.provider,
-        "model": row.model,
-        "spec": row.spec or {},
-        "results": row.results or [],
-        "metrics": row.metrics or {},
-        "trace": row.trace or [],
+        "model": "anonymous" if blind else row.model,
+        "spec": spec,
+        "results": [] if blind else row.results or [],
+        "metrics": {} if blind else row.metrics or {},
+        "trace": [] if blind else row.trace or [],
         "usage": row.usage or {},
         "progress": row.progress,
         "error": row.error,
@@ -453,6 +459,8 @@ def operations_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
                 for extra in ("judge", "order_check", "grade")
                 if isinstance(item.get(extra), dict)
             ]
+            if row.kind == "arena" and (row.spec or {}).get("blind"):
+                entries = [("anonymous arena model", entry) for _, entry in entries]
             for model_key, entry in entries:
                 usage = entry.get("usage")
                 if not isinstance(usage, dict):
@@ -546,6 +554,8 @@ async def create_experiment(
         raise HTTPException(422, "Choose each model once")
     if request.kind == "arena" and len(request.model_keys) < 2:
         raise HTTPException(422, "Arena needs at least two models")
+    if request.blind and (request.kind != "arena" or len(request.model_keys) != 2):
+        raise HTTPException(422, "Blind voting requires exactly two arena models")
     if request.kind == "evaluation" and not request.dataset_id:
         raise HTTPException(422, "Choose a dataset")
     if request.kind == "arena" and not request.prompt.strip() and not request.dataset_id:
@@ -758,7 +768,8 @@ async def _run_case(spec: ExperimentCreate, model_key: str, case: dict[str, Any]
                         spec.embedding_model_key
                         if method == "semantic"
                         else spec.evaluator_model_key
-                    ) or model_key,
+                    )
+                    or model_key,
                     prompt=spec.evaluator_prompt,
                 )
             )
@@ -779,8 +790,11 @@ async def _run_case(spec: ExperimentCreate, model_key: str, case: dict[str, Any]
     if grade is None and (case.get("expected_facts") or case.get("forbidden_facts")):
         expected_facts = case.get("expected_facts") or []
         score = len(facts) / len(expected_facts) if expected_facts else 1.0
-        grade = {"method": "fact_presence", "score": score,
-                 "passed": score >= 0.7 and not forbidden}
+        grade = {
+            "method": "fact_presence",
+            "score": score,
+            "passed": score >= 0.7 and not forbidden,
+        }
     if grade is not None:
         grade["expected_facts_found"] = facts
         grade["forbidden_facts_found"] = forbidden

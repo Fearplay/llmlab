@@ -34,11 +34,12 @@ def ensure_dependencies() -> None:
     if not API_PYTHON.is_file():
         print("Instaluji Python závislosti…", flush=True)
     subprocess.run(
-        [command("uv"), "sync", "--locked", "--project", str(API),
+        [command("uv"), "sync", "--locked", "--inexact", "--project", str(API),
          "--cache-dir", str(ROOT / ".uv-cache")],
         cwd=ROOT,
         check=True,
     )
+    # Keep optional extras that the user deliberately installed before startup.
     if not (WEB / "node_modules" / "next").exists():
         print("Instaluji webové závislosti…", flush=True)
         subprocess.run([command("pnpm"), "install", "--frozen-lockfile"], cwd=ROOT, check=True)

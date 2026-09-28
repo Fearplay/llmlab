@@ -16,8 +16,9 @@ from llmlab_api.settings import Settings, get_settings
 
 
 def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> None:
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
-                           poolclass=StaticPool)
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     Base.metadata.create_all(engine)
     factory = sessionmaker(engine)
     app = FastAPI()
@@ -29,8 +30,10 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
 
     app.dependency_overrides[get_db] = session
     app.dependency_overrides[get_settings] = lambda: Settings(
-        ollama_base_url="http://ollama.test/v1", openai_api_key="",
-        anthropic_api_key="", gemini_api_key="",
+        ollama_base_url="http://ollama.test/v1",
+        openai_api_key="",
+        anthropic_api_key="",
+        gemini_api_key="",
     )
 
     async def valid(*args: object, **kwargs: object) -> None:
@@ -38,17 +41,27 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
 
     async def fake_embed(request: object, settings: object) -> EmbeddingResult:
         inputs = request.inputs  # type: ignore[attr-defined]
-        vectors = [[1.0, 0.0] if "refund" in item.lower() else [0.0, 1.0]
-                   for item in inputs]
-        return EmbeddingResult(vectors=vectors, dimensions=2, provider="ollama",
-                               model="embed:1", mode=ExecutionMode.LOCAL,
-                               usage=Usage(input_tokens=5), fixture=False)
+        vectors = [[1.0, 0.0] if "refund" in item.lower() else [0.0, 1.0] for item in inputs]
+        return EmbeddingResult(
+            vectors=vectors,
+            dimensions=2,
+            provider="ollama",
+            model="embed:1",
+            mode=ExecutionMode.LOCAL,
+            usage=Usage(input_tokens=5),
+            fixture=False,
+        )
 
     async def fake_generate(request: object, settings: object) -> GenerationResult:
-        return GenerationResult(text="Refund is within 30 days [1].", provider="ollama",
-                                model="qwen:7b", mode=ExecutionMode.LOCAL,
-                                usage=Usage(input_tokens=40, output_tokens=10),
-                                latency_ms=20, fixture=False)
+        return GenerationResult(
+            text="Refund is within 30 days [1].",
+            provider="ollama",
+            model="qwen:7b",
+            mode=ExecutionMode.LOCAL,
+            usage=Usage(input_tokens=40, output_tokens=10),
+            latency_ms=20,
+            fixture=False,
+        )
 
     monkeypatch.setattr(user_rag_api, "_validate_model", valid)
     monkeypatch.setattr(user_rag_api, "embed", fake_embed)
@@ -58,41 +71,74 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
         assert sample.status_code == 200
         assert len(sample.json()["text"]) > 20_000
         assert "Atlas Works" in sample.json()["text"]
-        sample_preview = client.post("/api/v1/user-documents/text/preview", json={
-            "name": sample.json()["name"], "text": sample.json()["text"],
-            "embedding_model_key": "ollama:embed:1",
-        })
+        sample_preview = client.post(
+            "/api/v1/user-documents/text/preview",
+            json={
+                "name": sample.json()["name"],
+                "text": sample.json()["text"],
+                "embedding_model_key": "ollama:embed:1",
+            },
+        )
         assert sample_preview.status_code == 200, sample_preview.text
         assert sample_preview.json()["chunks"][0]["start"] == 0
         assert len(sample_preview.json()["chunks"]) > 10
 
-        upload = client.post("/api/v1/user-documents", data={
-            "strategy": "paragraph", "chunk_size": "40", "overlap": "0",
-            "embedding_model_key": "ollama:embed:1",
-        }, files={"file": ("policy.md", b"Refund within 30 days.\n\nShipping in 7 days.")})
+        upload = client.post(
+            "/api/v1/user-documents",
+            data={
+                "strategy": "paragraph",
+                "chunk_size": "40",
+                "overlap": "0",
+                "embedding_model_key": "ollama:embed:1",
+            },
+            files={"file": ("policy.md", b"Refund within 30 days.\n\nShipping in 7 days.")},
+        )
         assert upload.status_code == 201, upload.text
         document = upload.json()["document"]
         assert document["chunk_count"] == 2
         chunks = client.get(f"/api/v1/user-documents/{document['id']}/chunks").json()["chunks"]
         assert len(chunks) == 2
-        answer = client.post("/api/v1/user-rag/ask", json={
-            "question": "What is the refund period?", "generation_model_key": "ollama:qwen:7b",
-            "document_ids": [document["id"]], "bm25_rerank": True,
-        })
+        answer = client.post(
+            "/api/v1/user-rag/ask",
+            json={
+                "question": "What is the refund period?",
+                "generation_model_key": "ollama:qwen:7b",
+                "document_ids": [document["id"]],
+                "bm25_rerank": True,
+            },
+        )
         assert answer.status_code == 200, answer.text
         body = answer.json()
         assert body["grounded"] is True
         assert body["citations"][0]["chunk_id"] == chunks[0]["id"]
+        with factory() as db:
+            saved = db.get(user_rag_api.Run, body["run_id"])
+            assert saved.spec["document_versions"][0]["version_id"] == document["version_id"]
         assert body["run_id"].startswith("run_")
         assert [step["id"] for step in body["pipeline"]] == [
-            "document", "parsing", "chunking", "embedding", "index",
-            "query_transform", "retrieval", "reranking", "context", "llm", "answer",
+            "document",
+            "parsing",
+            "chunking",
+            "embedding",
+            "index",
+            "query_transform",
+            "retrieval",
+            "reranking",
+            "context",
+            "llm",
+            "answer",
         ]
-        lexical = client.post("/api/v1/user-rag/search", json={
-            "question": "refund period", "document_ids": [document["id"]],
-            "retrieval_mode": "lexical", "rewritten_query": "refund 30 days",
-            "extra_queries": ["return policy"], "rerank_diversity": True,
-        })
+        lexical = client.post(
+            "/api/v1/user-rag/search",
+            json={
+                "question": "refund period",
+                "document_ids": [document["id"]],
+                "retrieval_mode": "lexical",
+                "rewritten_query": "refund 30 days",
+                "extra_queries": ["return policy"],
+                "rerank_diversity": True,
+            },
+        )
         assert lexical.status_code == 200, lexical.text
         assert lexical.json()["retrieval_mode"] == "lexical"
         assert len(lexical.json()["query_variants"]) == 3
@@ -100,8 +146,12 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
 
         pasted = "Refund policy applies to this item. " * 12
         text_request = {
-            "name": "Pasted policy", "text": pasted, "strategy": "fixed",
-            "chunk_size": 40, "overlap": 10, "embedding_model_key": "ollama:embed:1",
+            "name": "Pasted policy",
+            "text": pasted,
+            "strategy": "fixed",
+            "chunk_size": 40,
+            "overlap": 10,
+            "embedding_model_key": "ollama:embed:1",
         }
         preview = client.post("/api/v1/user-documents/text/preview", json=text_request)
         assert preview.status_code == 200, preview.text
@@ -113,18 +163,79 @@ def test_upload_search_answer_and_delete(monkeypatch: pytest.MonkeyPatch) -> Non
         pasted_document = created.json()["document"]
         assert pasted_document["source_kind"] == "pasted"
         assert pasted_document["chunk_count"] == len(preview_chunks)
-        stored_chunks = client.get(
-            f"/api/v1/user-documents/{pasted_document['id']}/chunks"
-        ).json()["chunks"]
+        stored_chunks = client.get(f"/api/v1/user-documents/{pasted_document['id']}/chunks").json()[
+            "chunks"
+        ]
         assert [(item["start"], item["end"], item["text"]) for item in stored_chunks] == [
             (item["start"], item["end"], item["text"]) for item in preview_chunks
         ]
-        assert client.post("/api/v1/user-documents/text", json={
-            **text_request, "text": "   "
-        }).status_code == 422
+        assert (
+            client.post(
+                "/api/v1/user-documents/text", json={**text_request, "text": "   "}
+            ).status_code
+            == 422
+        )
+        versions_url = f"/api/v1/user-documents/{document['id']}/versions"
+        first_version = client.get(versions_url).json()["versions"][0]
+        assert first_version["version"] == 1
+        assert client.get(f"{versions_url}/{first_version['id']}/original").content == (
+            b"Refund within 30 days.\n\nShipping in 7 days."
+        )
+        update = client.post(
+            f"{versions_url}/text",
+            json={
+                "name": "Revised policy",
+                "text": "Refund within 45 days.",
+                "embedding_model_key": "ollama:embed:1",
+            },
+        )
+        assert update.status_code == 201, update.text
+        assert [item["version"] for item in client.get(versions_url).json()["versions"]] == [2, 1]
+        assert client.get(f"{versions_url}/{first_version['id']}/original").content == (
+            b"Refund within 30 days.\n\nShipping in 7 days."
+        )
+
+        async def no_generation(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("Generation must not run for weak evidence")
+
+        monkeypatch.setattr(user_rag_api, "generate", no_generation)
+        unknown = client.post(
+            "/api/v1/user-rag/ask",
+            json={
+                "question": "What is the population of Mars?",
+                "generation_model_key": "ollama:qwen:7b",
+                "document_ids": [document["id"]],
+            },
+        )
+        assert unknown.status_code == 200, unknown.text
+        assert unknown.json()["abstained"] is True
+        assert unknown.json()["grounding_status"] == "insufficient_evidence"
         assert client.delete(f"/api/v1/user-documents/{pasted_document['id']}").status_code == 204
         assert client.delete(f"/api/v1/user-documents/{document['id']}").status_code == 204
         assert client.get("/api/v1/user-documents").json()["documents"] == []
+
+
+def test_exact_claim_support_requires_cited_verbatim_passage() -> None:
+    hits = [
+        {
+            "text": "Refund is within 30 days.",
+            "start": 100,
+            "document_id": "doc1",
+            "document_version_id": "v1",
+            "chunk_id": "c1",
+        }
+    ]
+    verified = user_rag_api._exact_claim_support("Refund is within 30 days [1].", hits)
+    assert verified[0]["verified"] is True
+    assert verified[0]["source_start"] == 100
+    assert verified[0]["document_version_id"] == "v1"
+    assert (
+        user_rag_api._exact_claim_support("Refund is within 45 days [1].", hits)[0]["verified"]
+        is False
+    )
+    assert (
+        user_rag_api._exact_claim_support("Refund is within 30 days.", hits)[0]["verified"] is False
+    )
 
 
 def test_chunk_methods_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,10 +250,10 @@ def test_chunk_methods_are_distinct(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings()
     lengths = {}
     for strategy in ("fixed", "sentence", "paragraph", "semantic"):
-        chunks = asyncio.run(user_rag_api._chunk_slices(
-            text, strategy, 40, 0, "ollama:embed:1", settings
-        ))
+        chunks = asyncio.run(
+            user_rag_api._chunk_slices(text, strategy, 40, 0, "ollama:embed:1", settings)
+        )
         lengths[strategy] = len(chunks)
-        assert all(text[item.start:item.end].strip() for item in chunks)
+        assert all(text[item.start : item.end].strip() for item in chunks)
     assert lengths["paragraph"] == 2
     assert lengths["semantic"] >= lengths["paragraph"]

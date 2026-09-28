@@ -33,6 +33,8 @@ interface AppContextValue {
   setTheme: (value: ThemePreference) => void;
   projectName: string | null;
   setProjectName: (value: string | null) => void;
+  plainLanguage: boolean;
+  setPlainLanguage: (value: boolean) => void;
   models: CatalogModel[];
   modelError: string | null;
   modelsLoading: boolean;
@@ -54,6 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
   const [projectName, setProjectNameState] = useState<string | null>(null);
+  const [plainLanguage, setPlainLanguageState] = useState(false);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [modelError, setModelError] = useState<string | null>(null);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -96,6 +99,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setReduceMotionState(storedMotion === "true" || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       setThemeState(storedTheme === "light" || storedTheme === "dark" || storedTheme === "system" ? storedTheme : "system");
       setProjectNameState(storedProjectName?.trim() || null);
+      setPlainLanguageState(window.localStorage.getItem("llmlab.plainLanguage.v1") === "true");
     };
     queueMicrotask(hydratePreferences);
   }, []);
@@ -164,9 +168,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (normalized) window.localStorage.setItem("llmlab.projectName", normalized);
     else window.localStorage.removeItem("llmlab.projectName");
   }, []);
+  const setPlainLanguage = useCallback((next: boolean) => {
+    setPlainLanguageState(next);
+    window.localStorage.setItem("llmlab.plainLanguage.v1", String(next));
+  }, []);
 
   const t = useCallback((key: string) => translate(locale, key), [locale]);
-  const value = useMemo(() => ({ locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, models, modelError, modelsLoading, selectedModelKey, selectedModel, recentModelKeys, setSelectedModelKey, refreshModels, t }), [locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, models, modelError, modelsLoading, selectedModelKey, selectedModel, recentModelKeys, setSelectedModelKey, refreshModels, t]);
+  const value = useMemo(() => ({ locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, plainLanguage, setPlainLanguage, models, modelError, modelsLoading, selectedModelKey, selectedModel, recentModelKeys, setSelectedModelKey, refreshModels, t }), [locale, setLocale, mode, setMode, reduceMotion, setReduceMotion, theme, resolvedTheme, setTheme, projectName, setProjectName, plainLanguage, setPlainLanguage, models, modelError, modelsLoading, selectedModelKey, selectedModel, recentModelKeys, setSelectedModelKey, refreshModels, t]);
 
   return (
     <QueryClientProvider client={queryClient}>

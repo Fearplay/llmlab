@@ -31,6 +31,11 @@ type TrainingRun = {
     evaluation?: { mean_score: number; episodes: { score: number }[] };
   };
 };
+const challenges = [
+  { seed: 42, target: 1, cs: "První trubka", en: "First pipe", hintCs: "Překonejte jednu překážku a prohlédněte si rozhodnutí před ní.", hintEn: "Pass one obstacle and inspect the preceding decisions." },
+  { seed: 73, target: 3, cs: "Stálý let", en: "Steady flight", hintCs: "Na stejné trati porovnejte pravidlového a náhodného agenta.", hintEn: "Compare the rule and random agent on the same course." },
+  { seed: 123, target: 5, cs: "Zkouška modelu", en: "Model challenge", hintCs: "Sledujte, zda model udrží pět trubek a kolik rozhodnutí k tomu potřebuje.", hintEn: "See if the model passes five pipes and how many decisions it needs." },
+];
 
 function BirdPreview({ attempt, index, stepIndex, winner, cs }: { attempt: Showcase["attempts"][number]; index: number; stepIndex: number; winner: boolean; cs: boolean }) {
   const step = attempt.steps[Math.min(stepIndex, attempt.steps.length - 1)];
@@ -114,6 +119,8 @@ export function FlappyPage({ initialReplayId = null }: { initialReplayId?: strin
   const [replay, setReplay] = useState<Replay | null>(null);
   const [replayIndex, setReplayIndex] = useState(0);
   const [playingReplay, setPlayingReplay] = useState(false);
+  const [replaySpeed, setReplaySpeed] = useState(1);
+  const [challengeSeed, setChallengeSeed] = useState<number | null>(null);
   const [showcase, setShowcase] = useState<Showcase | null>(null);
   const [showcaseLoading, setShowcaseLoading] = useState(false);
   const [autoReplayId, setAutoReplayId] = useState<string | null>(null);
@@ -262,13 +269,19 @@ export function FlappyPage({ initialReplayId = null }: { initialReplayId?: strin
     const timer = window.setInterval(() => setReplayIndex((index) => {
       if (index >= replay.steps.length - 1) { setPlayingReplay(false); return index; }
       return index + 1;
-    }), 140);
+    }), 140 / replaySpeed);
     return () => window.clearInterval(timer);
-  }, [playingReplay, replay]);
+  }, [playingReplay, replay, replaySpeed]);
 
   const displayObservation = replay
     ? replay.steps[replayIndex]?.result.observation ?? replay.steps[0]?.observation ?? observation
     : observation;
+  const currentDecision = replay?.steps[replayIndex];
+  const decisionObservation = currentDecision?.observation ?? currentDecision?.result.observation;
+  const nextPipe = decisionObservation?.pipes?.filter((pipe) => pipe.x + pipe.width >= decisionObservation.bird.x).sort((a, b) => a.x - b.x)[0];
+  const decisionNote = currentDecision && decisionObservation?.bird ? (cs
+    ? `${currentDecision.action === "FLAP" ? "Máchnutí zvedá ptáka" : "Vyčkání nechává ptáka klesat"}. Výška ${Math.round(decisionObservation.bird.y)}, svislá rychlost ${(decisionObservation.bird.vy ?? 0).toFixed(1)}${nextPipe ? `; další mezera ${Math.round(nextPipe.gap_top)}–${Math.round(nextPipe.gap_bottom)}` : ""}. Toto popisuje pozorovaný stav, ne skrytý důvod modelu.`
+    : `${currentDecision.action === "FLAP" ? "Flap lifts the bird" : "Wait lets the bird fall"}. Height ${Math.round(decisionObservation.bird.y)}, vertical speed ${(decisionObservation.bird.vy ?? 0).toFixed(1)}${nextPipe ? `; next gap ${Math.round(nextPipe.gap_top)}–${Math.round(nextPipe.gap_bottom)}` : ""}. This describes the observed state, not the model's hidden reasoning.`) : "";
   const matchingModels = useMemo(() => models.filter((model) => `${model.provider} ${model.id}`.toLowerCase().includes(modelSearch.toLowerCase())), [models, modelSearch]);
   const activeCount = episodes.filter((episode) => episode.status === "queued" || episode.status === "running").length;
   const knownCosts = episodes.filter((episode) => episode.cost_usd != null).reduce((total, episode) => total + (episode.cost_usd ?? 0), 0);
@@ -329,6 +342,7 @@ export function FlappyPage({ initialReplayId = null }: { initialReplayId?: strin
   return <div className={styles.page}>
     <header className={styles.header}><div><h1>Flappy AI</h1><p>{cs ? "Otestujte člověka, pravidla i skutečné modely na stejné trati. Každé rozhodnutí lze přehrát." : "Test a human, rules and real models on the same course. Every decision can be replayed."}</p></div><div className={styles.headerStats}><strong>{leaders[0]?.best ?? "—"}</strong><div className={styles.statLabel}><span>{cs ? "nejvyšší skóre při tomto seedu" : "highest score on this seed"}</span><InfoTip label={cs ? "Jak se počítá skóre" : "How scoring works"} helpKey="flappy.score" context="metric" /></div></div></header>
     {error && <div className={styles.error} role="alert">{error}</div>}
+    <section className={styles.results}><div className={styles.sectionHeading}><div><h2>{cs ? "Připravené výzvy" : "Ready challenges"}</h2><p>{cs ? "Vyberte trať, spusťte hru a porovnejte skutečné skóre s cílem." : "Select a course, run a game and compare the actual score to the target."}</p></div></div><div className={styles.challengeGrid}>{challenges.map((challenge) => { const attempts = episodes.filter((item) => item.seed === challenge.seed && item.status === "completed"); const best = attempts.reduce((value, item) => Math.max(value, item.score), 0); return <article key={challenge.seed} data-selected={challengeSeed === challenge.seed}><strong>{cs ? challenge.cs : challenge.en}</strong><p>{cs ? challenge.hintCs : challenge.hintEn}</p><small>seed {challenge.seed} · {cs ? "cíl" : "target"} {challenge.target} · {attempts.length} {cs ? "běhů" : "runs"}</small><p>{attempts.length ? best >= challenge.target ? cs ? `Splněno: nejlepší běh překonal ${best} trubek. V replayi najděte rozhodnutí před dosažením cíle.` : `Completed: the best run passed ${best} pipes. Find the decision before the target in replay.` : cs ? `Zatím ${best}/${challenge.target}. Prohlédněte replay a zkuste jiného agenta na stejné trati.` : `So far ${best}/${challenge.target}. Inspect the replay and try another agent on the same course.` : cs ? "Zatím bez pokusu." : "No attempt yet."}</p><button onClick={() => { setSeed(challenge.seed); setChallengeSeed(challenge.seed); }}>{cs ? "Zvolit výzvu" : "Select challenge"}</button></article>; })}</div></section>
     <div className={styles.layout}>
       <section className={styles.playArea} aria-label={cs ? "Herní plocha" : "Game area"}>
         <GameBoard observation={displayObservation} />
@@ -336,7 +350,7 @@ export function FlappyPage({ initialReplayId = null }: { initialReplayId?: strin
           <div><strong>{showcase ? cs ? "Nejlepší z 20 pokusů DQN" : "Best of 20 DQN attempts" : replay ? cs ? "Ověřený replay" : "Verified replay" : live ? cs ? "Hrajete vy" : "You are playing" : cs ? "Připraveno" : "Ready"}</strong><span>{replay ? `${replayIndex + 1} / ${replay.steps.length}` : live ? cs ? "Mezerník nebo tlačítko Máchnout" : "Space or Flap button" : cs ? "Zvolte typ hráče" : "Choose a player"}</span></div>
           {live && <button className={styles.flapButton} onPointerDown={() => { flapPending.current = true; }}>↑ {cs ? "Máchnout" : "Flap"}</button>}
         </div>
-        {replay && <div className={styles.replayControl}><button onClick={() => setPlayingReplay((value) => !value)}>{playingReplay ? cs ? "Pozastavit" : "Pause" : cs ? "Přehrát" : "Play"}</button><label className={styles.replayField}><HelpLabel label={cs ? "Snímek replaye" : "Replay step"} helpKey="flappy.replayStep" /><input type="range" min="0" max={Math.max(0, replay.steps.length - 1)} value={replayIndex} onChange={(event) => setReplayIndex(Number(event.target.value))} /></label><span>{replay.steps[replayIndex]?.action ?? "—"}</span></div>}
+        {replay && <><div className={styles.replayControl}><button onClick={() => setPlayingReplay((value) => !value)}>{playingReplay ? cs ? "Pozastavit" : "Pause" : cs ? "Přehrát" : "Play"}</button><button onClick={() => { setPlayingReplay(false); setReplayIndex((value) => Math.max(0, value - 1)); }} aria-label={cs ? "Předchozí rozhodnutí" : "Previous decision"}>←</button><button onClick={() => { setPlayingReplay(false); setReplayIndex((value) => Math.min(replay.steps.length - 1, value + 1)); }} aria-label={cs ? "Další rozhodnutí" : "Next decision"}>→</button><label className={styles.replayField}><HelpLabel label={cs ? "Snímek replaye" : "Replay step"} helpKey="flappy.replayStep" /><input type="range" min="0" max={Math.max(0, replay.steps.length - 1)} value={replayIndex} onChange={(event) => setReplayIndex(Number(event.target.value))} /></label><span>{replay.steps[replayIndex]?.action ?? "—"}</span></div><label className={styles.speedField}><HelpLabel label={cs ? "Rychlost přehrávání" : "Replay speed"} helpKey="flappy.replaySpeed" /><select value={replaySpeed} onChange={(event) => setReplaySpeed(Number(event.target.value))}><option value={0.25}>0.25×</option><option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option><option value={4}>4×</option></select></label><p className={styles.decisionNote}>{decisionNote}</p></>}
       </section>
       <div className={styles.controls}>
         <section className={styles.controlSection}><h2>{cs ? "Spusťte hru" : "Start a game"}</h2><p>{cs ? "Seed určuje rozložení překážek. Stejné číslo znamená stejnou trať." : "The seed fixes the obstacle layout. The same number means the same course."}</p><label className={styles.seedLabel}><HelpLabel label={cs ? "Seed tratě" : "Course seed"} helpKey="flappy.seed" /><input type="number" min="0" max="2147483647" value={seed} onChange={(event) => setSeed(Math.max(0, Math.min(2147483647, Number(event.target.value) || 0)))} /></label><div className={styles.buttonGrid}><button className={styles.primaryButton} disabled={busy || live} onClick={startHuman}>{cs ? "Hrát sám" : "Play yourself"}</button><button disabled={busy} onClick={() => void startAgent("random")}>{cs ? "Náhodný agent" : "Random agent"}</button><button disabled={busy} onClick={() => void startAgent("rule")}>{cs ? "Pravidlový agent" : "Rule agent"}</button><button disabled={busy || !checkpointReady} onClick={() => void startAgent("dqn")}>DQN {checkpointReady ? "" : cs ? "· nejdřív trénovat" : "· train first"}</button></div>{live && <button className={styles.textButton} onClick={finishHuman}>{cs ? "Ukončit a uložit hru" : "Finish and save game"}</button>}</section>

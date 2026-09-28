@@ -21,6 +21,16 @@
 .replayField { display: grid; flex: 1; gap: 5px; min-width: 0; }
 .replayField input { width: 100%; }
 .replayControl span { min-width: 42px; color: var(--ink-soft); font: 11px "IBM Plex Mono", monospace; }
+.speedField { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.speedField select { padding: 5px 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.decisionNote { margin: 9px 0 0; padding: 9px 11px; border-left: 3px solid var(--blue); background: var(--blue-soft); font-size: 11px; line-height: 1.5; }
+.challengeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-bottom: 14px; }
+.challengeGrid article { display: grid; gap: 7px; padding: 13px; border: 1px solid var(--line); }
+.challengeGrid article[data-selected="true"] { border-color: var(--blue); background: var(--blue-soft); }
+.challengeGrid strong { font-size: 13px; }
+.challengeGrid p { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.4; }
+.challengeGrid small { font: 10px "IBM Plex Mono", monospace; }
+.challengeGrid button { justify-self: start; padding: 6px 9px; border: 1px solid var(--blue); background: var(--paper); color: var(--blue); }
 .controls { display: grid; align-content: start; gap: 16px; }
 .controlSection { padding: 19px 21px 21px; border: 1px solid var(--line); background: var(--paper); }
 .controlSection h2 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.025em; }
@@ -104,4 +114,5 @@
 @media (max-width: 950px) { .birdGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .birdGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .showcaseHeading { flex-wrap: wrap; } }
 @media (max-width: 620px) { .header { align-items: start; } .headerStats { min-width: 70px; } .headerStats strong { font-size: 27px; } .statLabel > span { font-size: 10px; } .controlSection, .results { padding-right: 13px; padding-left: 13px; } .board { min-height: 320px; } .history button { grid-template-columns: minmax(95px, 1fr) minmax(70px, auto); } .history button > span:last-child { display: none; } .costSummary { display: grid; gap: 3px; } .scoreBar { grid-template-columns: minmax(70px, 100px) minmax(50px, 1fr) 32px; gap: 7px; } }
+@media (max-width: 700px) { .challengeGrid { grid-template-columns: 1fr; } .replayControl { flex-wrap: wrap; } .replayField { flex-basis: 100%; order: 2; } }
 @media (prefers-reduced-motion: reduce) { .page *, .page *::before, .page *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; } }

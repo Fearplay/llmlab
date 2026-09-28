@@ -15,10 +15,12 @@ from sse_starlette.sse import EventSourceResponse
 
 from . import (
     agent_api,
+    backup_api,
     game_api,
     inference_api,
     lab_api,
     model_catalog,
+    preflight_api,
     pricing,
     secret_settings,
     user_rag_api,
@@ -75,6 +77,8 @@ app.include_router(lab_api.router)
 app.include_router(game_api.router)
 app.include_router(user_rag_api.router)
 app.include_router(agent_api.router)
+app.include_router(backup_api.router)
+app.include_router(preflight_api.router)
 app.include_router(inference_api.router)
 
 
@@ -352,7 +356,7 @@ def _run_view(row: Run) -> RunView:
         status=RunStatus(row.status),
         mode=ExecutionMode(row.mode),
         provider=row.provider,
-        model=row.model,
+        model="anonymous" if row.kind == "arena" and (row.spec or {}).get("blind") else row.model,
         dataset_version=row.dataset_version,
         prompt_version=row.prompt_version,
         evaluator_versions=row.evaluator_versions,

@@ -5,6 +5,12 @@ The LLMLab source code is licensed separately under the project LICENSE file.
 ============================================================================
 alembic==1.20.0 — MIT
 ============================================================================
+Project URL: Homepage, https://alembic.sqlalchemy.org
+Project URL: Documentation, https://alembic.sqlalchemy.org/en/latest/
+Project URL: Changelog, https://alembic.sqlalchemy.org/en/latest/changelog.html
+Project URL: Source, https://github.com/sqlalchemy/alembic/
+Project URL: Issue Tracker, https://github.com/sqlalchemy/alembic/issues/
+Package author: Mike Bayer <mike_mp@zzzcomputing.com>
 
 --- alembic-1.20.0.dist-info/licenses/LICENSE ---
 Copyright 2009-2026 Michael Bayer.
@@ -31,6 +37,8 @@ SOFTWARE.
 ============================================================================
 amqp==5.3.1 — BSD
 ============================================================================
+Homepage: http://github.com/celery/py-amqp
+Package author: auvipy@gmail.com
 
 --- amqp-5.3.1.dist-info/LICENSE ---
 Copyright (c) 2015-2016 Ask Solem & contributors.  All rights reserved.
@@ -85,6 +93,12 @@ Footnotes
 ============================================================================
 annotated-doc==0.0.5 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/fastapi/annotated-doc
+Project URL: Documentation, https://github.com/fastapi/annotated-doc
+Project URL: Repository, https://github.com/fastapi/annotated-doc
+Project URL: Issues, https://github.com/fastapi/annotated-doc/issues
+Project URL: Changelog, https://github.com/fastapi/annotated-doc/release-notes.md
+Package author: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 
 --- annotated_doc-0.0.5.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -113,6 +127,10 @@ THE SOFTWARE.
 ============================================================================
 annotated-types==0.8.0 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/annotated-types/annotated-types
+Project URL: Source, https://github.com/annotated-types/annotated-types
+Project URL: Changelog, https://github.com/annotated-types/annotated-types/releases
+Package author: Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, Samuel Colvin <s@muelcolvin.com>, Zac Hatfield-Dodds <zac@zhd.dev>
 
 --- annotated_types-0.8.0.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -141,6 +159,11 @@ SOFTWARE.
 ============================================================================
 anyio==4.15.1 — MIT
 ============================================================================
+Project URL: Documentation, https://anyio.readthedocs.io/en/latest/
+Project URL: Changelog, https://anyio.readthedocs.io/en/stable/versionhistory.html
+Project URL: Source code, https://github.com/agronholm/anyio
+Project URL: Issue tracker, https://github.com/agronholm/anyio/issues
+Package author: Alex Grönholm <alex.gronholm@nextday.fi>
 
 --- anyio-4.15.1.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -168,6 +191,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 attrs==26.1.0 — MIT
 ============================================================================
+Project URL: Documentation, https://www.attrs.org/
+Project URL: Changelog, https://www.attrs.org/en/stable/changelog.html
+Project URL: GitHub, https://github.com/python-attrs/attrs
+Project URL: Funding, https://github.com/sponsors/hynek
+Project URL: Tidelift, https://tidelift.com/subscription/pkg/pypi-attrs?utm_source=pypi-attrs&utm_medium=pypi
+Package author: Hynek Schlawack <hs@ox.cx>
 
 --- attrs-26.1.0.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -196,6 +225,8 @@ SOFTWARE.
 ============================================================================
 billiard==4.2.4 — BSD
 ============================================================================
+Homepage: https://github.com/celery/billiard
+Package author: python-dev@python.org
 
 --- billiard-4.2.4.dist-info/LICENSE.txt ---
 Copyright (c) 2006-2008, R Oudkerk and Contributors
@@ -231,6 +262,13 @@ SUCH DAMAGE.
 ============================================================================
 celery==5.6.3 — BSD-3-Clause
 ============================================================================
+Project URL: Documentation, https://docs.celeryq.dev/en/stable/
+Project URL: Changelog, https://docs.celeryq.dev/en/stable/changelog.html
+Project URL: Code, https://github.com/celery/celery
+Project URL: Tracker, https://github.com/celery/celery/issues
+Project URL: Funding, https://opencollective.com/celery
+Homepage: https://docs.celeryq.dev/
+Package author: auvipy@gmail.com
 
 --- celery-5.6.3.dist-info/licenses/LICENSE ---
 Copyright (c) 2017-2026 Asif Saif Uddin, core team & contributors. All rights reserved.
@@ -293,6 +331,9 @@ Footnotes
 ============================================================================
 certifi==2026.7.22 — MPL-2.0
 ============================================================================
+Project URL: Source, https://github.com/certifi/python-certifi
+Homepage: https://github.com/certifi/python-certifi
+Package author: me@kennethreitz.com
 
 --- certifi-2026.7.22.dist-info/licenses/LICENSE ---
 This package contains a modified version of ca-bundle.crt:
@@ -320,6 +361,11 @@ one at http://mozilla.org/MPL/2.0/.
 ============================================================================
 click==8.5.0 — BSD-3-Clause
 ============================================================================
+Project URL: Changes, https://click.palletsprojects.com/page/changes/
+Project URL: Chat, https://discord.gg/pallets
+Project URL: Documentation, https://click.palletsprojects.com/
+Project URL: Donate, https://palletsprojects.com/donate
+Project URL: Source, https://github.com/pallets/click/
 
 --- click-8.5.0.dist-info/licenses/LICENSE.txt ---
 Copyright 2014 Pallets
@@ -355,6 +401,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 click-didyoumean==0.3.1 — MIT
 ============================================================================
+Project URL: Repository, https://github.com/click-contrib/click-didyoumean
+Homepage: https://github.com/click-contrib/click-didyoumean
+Package author: timo.furrer@roche.com
 
 --- click_didyoumean-0.3.1.dist-info/LICENSE ---
 Copyright (c) 2016 Timo Furrer
@@ -381,6 +430,8 @@ THE SOFTWARE.
 ============================================================================
 click-plugins==1.1.1.2 — New BSD
 ============================================================================
+Homepage: https://github.com/click-contrib/click-plugins
+Package author: wursterk@gmail.com, sean.gillies@gmail.com
 
 --- click_plugins-1.1.1.2.dist-info/licenses/LICENSE.txt ---
 New BSD License
@@ -417,6 +468,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 click-repl==0.3.0 — MIT
 ============================================================================
+Homepage: https://github.com/untitaker/click-repl
+Package author: markus@unterwaditzer.net
 
 --- click_repl-0.3.0.dist-info/LICENSE ---
 Copyright (c) 2014-2015 Markus Unterwaditzer & contributors.
@@ -444,6 +497,12 @@ SOFTWARE.
 ============================================================================
 fastapi==0.141.1 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/fastapi/fastapi
+Project URL: Documentation, https://fastapi.tiangolo.com/
+Project URL: Repository, https://github.com/fastapi/fastapi
+Project URL: Issues, https://github.com/fastapi/fastapi/issues
+Project URL: Changelog, https://fastapi.tiangolo.com/release-notes/
+Package author: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 
 --- fastapi-0.141.1.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -472,6 +531,12 @@ THE SOFTWARE.
 ============================================================================
 greenlet==3.5.5 — MIT AND PSF-2.0
 ============================================================================
+Project URL: Homepage, https://greenlet.readthedocs.io
+Project URL: Documentation, https://greenlet.readthedocs.io
+Project URL: Repository, https://github.com/python-greenlet/greenlet
+Project URL: Issues, https://github.com/python-greenlet/greenlet/issues
+Project URL: Changelog, https://greenlet.readthedocs.io/en/latest/changes.html
+Package author: Alexey Borzenkov <snaury@gmail.com>
 
 --- greenlet-3.5.5.dist-info/licenses/LICENSE ---
 The following files are derived from Stackless Python and are subject to the
@@ -559,6 +624,8 @@ Agreement.
 ============================================================================
 h11==0.16.0 — MIT
 ============================================================================
+Homepage: https://github.com/python-hyper/h11
+Package author: njs@pobox.com
 
 --- h11-0.16.0.dist-info/licenses/LICENSE.txt ---
 The MIT License (MIT)
@@ -588,6 +655,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 httpcore==1.0.9 — BSD-3-Clause
 ============================================================================
+Project URL: Documentation, https://www.encode.io/httpcore
+Project URL: Homepage, https://www.encode.io/httpcore/
+Project URL: Source, https://github.com/encode/httpcore
+Package author: Tom Christie <tom@tomchristie.com>
 
 --- httpcore-1.0.9.dist-info/licenses/LICENSE.md ---
 Copyright © 2020, [Encode OSS Ltd](https://www.encode.io/).
@@ -622,6 +693,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 httptools==0.8.0 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/MagicStack/httptools
+Package author: Yury Selivanov <yury@magic.io>
 
 --- httptools-0.8.0.dist-info/licenses/LICENSE ---
 The MIT License
@@ -697,6 +770,11 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 httpx==0.28.1 — BSD-3-Clause
 ============================================================================
+Project URL: Changelog, https://github.com/encode/httpx/blob/master/CHANGELOG.md
+Project URL: Documentation, https://www.python-httpx.org
+Project URL: Homepage, https://github.com/encode/httpx
+Project URL: Source, https://github.com/encode/httpx
+Package author: Tom Christie <tom@tomchristie.com>
 
 --- httpx-0.28.1.dist-info/licenses/LICENSE.md ---
 Copyright © 2019, [Encode OSS Ltd](https://www.encode.io/).
@@ -716,6 +794,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ============================================================================
 idna==3.19 — BSD-3-Clause
 ============================================================================
+Project URL: Changelog, https://github.com/kjd/idna/blob/master/HISTORY.md
+Project URL: Issue tracker, https://github.com/kjd/idna/issues
+Project URL: Source, https://github.com/kjd/idna
+Package author: Kim Davies <kim+pypi@gumleaf.org>
 
 --- idna-3.19.dist-info/licenses/LICENSE.md ---
 BSD 3-Clause License
@@ -754,6 +836,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 jaraco.classes==3.4.0 — See text
 ============================================================================
+Homepage: https://github.com/jaraco/jaraco.classes
+Package author: jaraco@jaraco.com
 
 --- jaraco.classes-3.4.0.dist-info/LICENSE ---
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -778,6 +862,8 @@ IN THE SOFTWARE.
 ============================================================================
 jaraco.context==6.1.2 — MIT
 ============================================================================
+Project URL: Source, https://github.com/jaraco/jaraco.context
+Package author: "Jason R. Coombs" <jaraco@jaraco.com>
 
 --- jaraco_context-6.1.2.dist-info/licenses/LICENSE ---
 MIT License
@@ -803,6 +889,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 jaraco.functools==4.6.0 — MIT
 ============================================================================
+Project URL: Source, https://github.com/jaraco/jaraco.functools
+Package author: "Jason R. Coombs" <jaraco@jaraco.com>
 
 --- jaraco_functools-4.6.0.dist-info/licenses/LICENSE ---
 MIT License
@@ -828,6 +916,14 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 jsonschema==4.26.0 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/python-jsonschema/jsonschema
+Project URL: Documentation, https://python-jsonschema.readthedocs.io/
+Project URL: Issues, https://github.com/python-jsonschema/jsonschema/issues/
+Project URL: Funding, https://github.com/sponsors/Julian
+Project URL: Tidelift, https://tidelift.com/subscription/pkg/pypi-jsonschema?utm_source=pypi-jsonschema&utm_medium=referral&utm_campaign=pypi-link
+Project URL: Changelog, https://github.com/python-jsonschema/jsonschema/blob/main/CHANGELOG.rst
+Project URL: Source, https://github.com/python-jsonschema/jsonschema
+Package author: Julian Berman <Julian+jsonschema@GrayVines.com>
 
 --- jsonschema-4.26.0.dist-info/licenses/COPYING ---
 Copyright (c) 2013 Julian Berman
@@ -854,6 +950,13 @@ THE SOFTWARE.
 ============================================================================
 jsonschema-specifications==2025.9.1 — MIT
 ============================================================================
+Project URL: Documentation, https://jsonschema-specifications.readthedocs.io/
+Project URL: Homepage, https://github.com/python-jsonschema/jsonschema-specifications
+Project URL: Issues, https://github.com/python-jsonschema/jsonschema-specifications/issues/
+Project URL: Funding, https://github.com/sponsors/Julian
+Project URL: Tidelift, https://tidelift.com/subscription/pkg/pypi-jsonschema-specifications?utm_source=pypi-jsonschema-specifications&utm_medium=referral&utm_campaign=pypi-link
+Project URL: Source, https://github.com/python-jsonschema/jsonschema-specifications
+Package author: Julian Berman <Julian+jsonschema-specifications@GrayVines.com>
 
 --- jsonschema_specifications-2025.9.1.dist-info/licenses/COPYING ---
 Copyright (c) 2022 Julian Berman
@@ -880,6 +983,8 @@ THE SOFTWARE.
 ============================================================================
 keyring==25.7.0 — MIT
 ============================================================================
+Project URL: Source, https://github.com/jaraco/keyring
+Package author: Kang Zhang <jobo.zh@gmail.com>
 
 --- keyring-25.7.0.dist-info/licenses/LICENSE ---
 MIT License
@@ -905,6 +1010,9 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 kombu==5.6.2 — BSD-3-Clause
 ============================================================================
+Project URL: Source, https://github.com/celery/kombu
+Homepage: https://kombu.readthedocs.io
+Package author: auvipy@gmail.com
 
 --- kombu-5.6.2.dist-info/licenses/LICENSE ---
 Copyright (c) 2015-2016 Ask Solem & contributors.  All rights reserved.
@@ -938,6 +1046,10 @@ POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 lxml==6.1.3 — BSD-3-Clause
 ============================================================================
+Project URL: Source, https://github.com/lxml/lxml
+Project URL: Bug Tracker, https://bugs.launchpad.net/lxml
+Homepage: https://lxml.de/
+Package author: lxml@lxml.de
 
 --- lxml-6.1.3.dist-info/licenses/LICENSE.txt ---
 BSD 3-Clause License
@@ -1106,6 +1218,10 @@ ings in this Software without prior written authorization from him.
 ============================================================================
 Mako==1.4.1 — MIT
 ============================================================================
+Project URL: Homepage, https://www.makotemplates.org/
+Project URL: Documentation, https://docs.makotemplates.org
+Project URL: Issue Tracker, https://github.com/sqlalchemy/mako
+Package author: Mike Bayer <mike@zzzcomputing.com>
 
 --- mako-1.4.1.dist-info/licenses/LICENSE ---
 Copyright 2006-2026 the Mako authors and contributors <see AUTHORS file>.
@@ -1132,6 +1248,11 @@ SOFTWARE.
 ============================================================================
 MarkupSafe==3.0.3 — BSD-3-Clause
 ============================================================================
+Project URL: Donate, https://palletsprojects.com/donate
+Project URL: Documentation, https://markupsafe.palletsprojects.com/
+Project URL: Changes, https://markupsafe.palletsprojects.com/page/changes/
+Project URL: Source, https://github.com/pallets/markupsafe/
+Project URL: Chat, https://discord.gg/pallets
 
 --- markupsafe-3.0.3.dist-info/licenses/LICENSE.txt ---
 Copyright 2010 Pallets
@@ -1167,6 +1288,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 more-itertools==11.1.0 — MIT
 ============================================================================
+Project URL: Documentation, https://more-itertools.readthedocs.io/en/stable/
+Project URL: Homepage, https://github.com/more-itertools/more-itertools
+Package author: Erik Rose <erikrose@grinchcentral.com>
 
 --- more_itertools-11.1.0.dist-info/licenses/LICENSE ---
 Copyright (c) 2012 Erik Rose
@@ -1193,6 +1317,13 @@ SOFTWARE.
 ============================================================================
 numpy==2.5.3 — BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
 ============================================================================
+Project URL: homepage, https://numpy.org
+Project URL: documentation, https://numpy.org/doc/
+Project URL: source, https://github.com/numpy/numpy
+Project URL: download, https://pypi.org/project/numpy/#files
+Project URL: tracker, https://github.com/numpy/numpy/issues
+Project URL: release notes, https://numpy.org/doc/stable/release
+Package author: Travis E. Oliphant et al.
 
 --- numpy-2.5.3.dist-info/licenses/LICENSE.txt ---
 Copyright (c) 2005-2025, NumPy Developers.
@@ -3126,6 +3257,9 @@ the component code.
 ============================================================================
 packaging==26.3 — Apache-2.0 OR BSD-2-Clause
 ============================================================================
+Project URL: Documentation, https://packaging.pypa.io/
+Project URL: Source, https://github.com/pypa/packaging
+Package author: Donald Stufft <donald@stufft.io>
 
 --- packaging-26.3.dist-info/licenses/LICENSE ---
 This software is made available under the terms of *either* of the licenses
@@ -3342,6 +3476,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 pgvector==0.5.0 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/pgvector/pgvector-python
+Package author: Andrew Kane <andrew@ankane.org>
 
 --- pgvector-0.5.0.dist-info/licenses/LICENSE.txt ---
 The MIT License (MIT)
@@ -3370,6 +3506,14 @@ THE SOFTWARE.
 ============================================================================
 pillow==12.3.0 — MIT-CMU
 ============================================================================
+Project URL: Release notes, https://pillow.readthedocs.io/en/stable/releasenotes/index.html
+Project URL: Changelog, https://github.com/python-pillow/Pillow/releases
+Project URL: Documentation, https://pillow.readthedocs.io
+Project URL: Funding, https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi
+Project URL: Homepage, https://python-pillow.github.io
+Project URL: Mastodon, https://fosstodon.org/@pillow
+Project URL: Source, https://github.com/python-pillow/Pillow
+Package author: Jeffrey 'Alex' Clark <aclark@aclark.net>
 
 --- pillow-12.3.0.dist-info/licenses/LICENSE ---
 The Python Imaging Library (PIL) is
@@ -4994,6 +5138,9 @@ freely, subject to the following restrictions:
 ============================================================================
 prompt_toolkit==3.0.53 — See text
 ============================================================================
+Project URL: Homepage, https://github.com/prompt-toolkit/python-prompt-toolkit
+Project URL: Documentation, https://python-prompt-toolkit.readthedocs.io/en/stable/
+Package author: Jonathan Slenders
 
 --- prompt_toolkit-3.0.53.dist-info/licenses/LICENSE ---
 Copyright (c) 2014, Jonathan Slenders
@@ -5028,6 +5175,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 psycopg==3.3.5 — LGPL-3.0-only
 ============================================================================
+Project URL: Homepage, https://psycopg.org/
+Project URL: Documentation, https://psycopg.org/psycopg3/docs/
+Project URL: Changes, https://psycopg.org/psycopg3/docs/news.html
+Project URL: Code, https://github.com/psycopg/psycopg
+Project URL: Issue Tracker, https://github.com/psycopg/psycopg/issues
+Project URL: Funding, https://github.com/sponsors/dvarrazzo
+Package author: Daniele Varrazzo <daniele.varrazzo@gmail.com>
 
 --- psycopg-3.3.5.dist-info/licenses/LICENSE.txt ---
                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -5200,6 +5354,13 @@ Library.
 ============================================================================
 psycopg-binary==3.3.5 — LGPL-3.0-only
 ============================================================================
+Project URL: Homepage, https://psycopg.org/
+Project URL: Documentation, https://psycopg.org/psycopg3/docs/
+Project URL: Changes, https://psycopg.org/psycopg3/docs/news.html
+Project URL: Code, https://github.com/psycopg/psycopg
+Project URL: Issue Tracker, https://github.com/psycopg/psycopg/issues
+Project URL: Funding, https://github.com/sponsors/dvarrazzo
+Package author: Daniele Varrazzo <daniele.varrazzo@gmail.com>
 
 --- psycopg_binary-3.3.5.dist-info/licenses/LICENSE.txt ---
                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -5372,6 +5533,12 @@ Library.
 ============================================================================
 pydantic==2.13.5 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/pydantic/pydantic
+Project URL: Documentation, https://docs.pydantic.dev
+Project URL: Funding, https://github.com/sponsors/samuelcolvin
+Project URL: Source, https://github.com/pydantic/pydantic
+Project URL: Changelog, https://docs.pydantic.dev/latest/changelog/
+Package author: Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>, Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, Terrence Dorsey <terry@pydantic.dev>, David Montague <david@pydantic.dev>, Serge Matveenko <lig@countzero.co>, Marcelo Trylesinski <marcelotryle@gmail.com>, Sydney Runkle <sydneymarierunkle@gmail.com>, David Hewitt <mail@davidhewitt.dev>, Alex Hall <alex.mojaki@gmail.com>, Victorien Plot <contact@vctrn.dev>
 
 --- pydantic-2.13.5.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -5400,6 +5567,12 @@ SOFTWARE.
 ============================================================================
 pydantic-settings==2.15.0 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/pydantic/pydantic-settings
+Project URL: Funding, https://github.com/sponsors/samuelcolvin
+Project URL: Source, https://github.com/pydantic/pydantic-settings
+Project URL: Changelog, https://github.com/pydantic/pydantic-settings/releases
+Project URL: Documentation, https://docs.pydantic.dev/dev-v2/concepts/pydantic_settings/
+Package author: Samuel Colvin <s@muelcolvin.com>, Eric Jolibois <em.jolibois@gmail.com>, Hasan Ramezani <hasan.r67@gmail.com>
 
 --- pydantic_settings-2.15.0.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -5428,6 +5601,11 @@ SOFTWARE.
 ============================================================================
 pydantic_core==2.46.5 — MIT
 ============================================================================
+Project URL: Funding, https://github.com/sponsors/samuelcolvin
+Project URL: Homepage, https://github.com/pydantic
+Project URL: Source, https://github.com/pydantic/pydantic/tree/main/pydantic-core
+Homepage: https://github.com/pydantic/pydantic
+Package author: Samuel Colvin <s@muelcolvin.com>, Adrian Garcia Badaracco <1755071+adriangb@users.noreply.github.com>, David Montague <david@pydantic.dev>, David Hewitt <mail@davidhewitt.dev>, Sydney Runkle <sydneymarierunkle@gmail.com>, Victorien Plot <contact@vctrn.dev>
 
 --- pydantic_core-2.46.5.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -5456,6 +5634,11 @@ SOFTWARE.
 ============================================================================
 pypdf==6.19.0 — BSD-3-Clause
 ============================================================================
+Project URL: Bug Reports, https://github.com/py-pdf/pypdf/issues
+Project URL: Changelog, https://pypdf.readthedocs.io/en/latest/meta/CHANGELOG.html
+Project URL: Documentation, https://pypdf.readthedocs.io/en/latest/
+Project URL: Source, https://github.com/py-pdf/pypdf
+Package author: Mathieu Fenniak <biziqe@mathieu.fenniak.net>
 
 --- pypdf-6.19.0.dist-info/licenses/LICENSE ---
 Copyright (c) 2006-2008, Mathieu Fenniak
@@ -5492,6 +5675,10 @@ POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 python-dateutil==2.9.0.post0 — Dual License
 ============================================================================
+Project URL: Documentation, https://dateutil.readthedocs.io/en/stable/
+Project URL: Source, https://github.com/dateutil/dateutil
+Homepage: https://github.com/dateutil/dateutil
+Package author: gustavo@niemeyer.net
 
 --- python_dateutil-2.9.0.post0.dist-info/LICENSE ---
 Copyright 2017- Paul Ganssle <paul@ganssle.io>
@@ -5553,6 +5740,11 @@ The above BSD License Applies to all code, even that also covered by Apache 2.0.
 ============================================================================
 python-docx==1.2.0 — MIT
 ============================================================================
+Project URL: Changelog, https://github.com/python-openxml/python-docx/blob/master/HISTORY.rst
+Project URL: Documentation, https://python-docx.readthedocs.org/en/latest/
+Project URL: Homepage, https://github.com/python-openxml/python-docx
+Project URL: Repository, https://github.com/python-openxml/python-docx
+Package author: Steve Canny <stcanny@gmail.com>
 
 --- python_docx-1.2.0.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -5580,6 +5772,8 @@ THE SOFTWARE.
 ============================================================================
 python-dotenv==1.2.3 — BSD-3-Clause
 ============================================================================
+Project URL: Source, https://github.com/theskumar/python-dotenv
+Package author: Saurabh Kumar <me+github@saurabh-kumar.com>
 
 --- python_dotenv-1.2.3.dist-info/licenses/LICENSE ---
 Copyright (c) 2014, Saurabh Kumar (python-dotenv), 2013, Ted Tieken (django-dotenv-rw), 2013, Jacob Kaplan-Moss (django-dotenv)
@@ -5614,6 +5808,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 python-multipart==0.0.32 — Apache-2.0
 ============================================================================
+Project URL: Homepage, https://github.com/Kludex/python-multipart
+Project URL: Documentation, https://kludex.github.io/python-multipart/
+Project URL: Changelog, https://github.com/Kludex/python-multipart/blob/master/CHANGELOG.md
+Project URL: Source, https://github.com/Kludex/python-multipart
+Package author: Andrew Dunham <andrew@du.nham.ca>
 
 --- python_multipart-0.0.32.dist-info/licenses/LICENSE.txt ---
 
@@ -5823,6 +6022,8 @@ python-multipart==0.0.32 — Apache-2.0
 ============================================================================
 pywin32-ctypes==0.2.3 — BSD-3-Clause
 ============================================================================
+Homepage: https://github.com/enthought/pywin32-ctypes
+Package author: info@enthough.com
 
 --- pywin32_ctypes-0.2.3.dist-info/LICENSE.txt ---
 This software is OSI Certified Open Source Software.
@@ -5858,6 +6059,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 PyYAML==6.0.3 — MIT
 ============================================================================
+Project URL: Bug Tracker, https://github.com/yaml/pyyaml/issues
+Project URL: CI, https://github.com/yaml/pyyaml/actions
+Project URL: Documentation, https://pyyaml.org/wiki/PyYAMLDocumentation
+Project URL: Mailing lists, http://lists.sourceforge.net/lists/listinfo/yaml-core
+Project URL: Source Code, https://github.com/yaml/pyyaml
+Homepage: https://pyyaml.org/
+Package author: xi@resolvent.net
 
 --- pyyaml-6.0.3.dist-info/licenses/LICENSE ---
 Copyright (c) 2017-2021 Ingy döt Net
@@ -5885,6 +6093,12 @@ SOFTWARE.
 ============================================================================
 redis==6.4.0 — MIT
 ============================================================================
+Project URL: Changes, https://github.com/redis/redis-py/releases
+Project URL: Code, https://github.com/redis/redis-py
+Project URL: Documentation, https://redis.readthedocs.io/en/latest/
+Project URL: Homepage, https://github.com/redis/redis-py
+Project URL: Issue tracker, https://github.com/redis/redis-py/issues
+Package author: "Redis Inc." <oss@redis.com>
 
 --- redis-6.4.0.dist-info/licenses/LICENSE ---
 MIT License
@@ -5913,6 +6127,14 @@ SOFTWARE.
 ============================================================================
 referencing==0.37.0 — MIT
 ============================================================================
+Project URL: Documentation, https://referencing.readthedocs.io/
+Project URL: Homepage, https://github.com/python-jsonschema/referencing
+Project URL: Issues, https://github.com/python-jsonschema/referencing/issues/
+Project URL: Funding, https://github.com/sponsors/Julian
+Project URL: Tidelift, https://tidelift.com/subscription/pkg/pypi-referencing?utm_source=pypi-referencing&utm_medium=referral&utm_campaign=pypi-link
+Project URL: Changelog, https://referencing.readthedocs.io/en/stable/changes/
+Project URL: Source, https://github.com/python-jsonschema/referencing
+Package author: Julian Berman <Julian+referencing@GrayVines.com>
 
 --- referencing-0.37.0.dist-info/licenses/COPYING ---
 Copyright (c) 2022 Julian Berman
@@ -5939,6 +6161,14 @@ THE SOFTWARE.
 ============================================================================
 rpds-py==2026.6.3 — MIT
 ============================================================================
+Project URL: Documentation, https://rpds.readthedocs.io/
+Project URL: Funding, https://github.com/sponsors/Julian
+Project URL: Homepage, https://github.com/crate-py/rpds
+Project URL: Issues, https://github.com/crate-py/rpds/issues/
+Project URL: Source, https://github.com/crate-py/rpds
+Project URL: Tidelift, https://tidelift.com/subscription/pkg/pypi-rpds-py?utm_source=pypi-rpds-py&utm_medium=referral&utm_campaign=pypi-link
+Project URL: Upstream, https://github.com/orium/rpds
+Package author: Julian Berman <Julian+rpds@GrayVines.com>
 
 --- rpds_py-2026.6.3.dist-info/licenses/LICENSE ---
 Copyright (c) 2023 Julian Berman
@@ -5965,6 +6195,8 @@ THE SOFTWARE.
 ============================================================================
 six==1.17.0 — MIT
 ============================================================================
+Homepage: https://github.com/benjaminp/six
+Package author: benjamin@python.org
 
 --- six-1.17.0.dist-info/LICENSE ---
 Copyright (c) 2010-2024 Benjamin Peterson
@@ -5990,6 +6222,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ============================================================================
 SQLAlchemy==2.0.52 — MIT
 ============================================================================
+Project URL: Documentation, https://docs.sqlalchemy.org
+Project URL: Issue Tracker, https://github.com/sqlalchemy/sqlalchemy/
+Homepage: https://www.sqlalchemy.org
+Package author: mike_mp@zzzcomputing.com
 
 --- sqlalchemy-2.0.52.dist-info/licenses/LICENSE ---
 Copyright 2005-2026 SQLAlchemy authors and contributors <see AUTHORS file>.
@@ -6016,6 +6252,11 @@ SOFTWARE.
 ============================================================================
 sse-starlette==3.4.11 — BSD-3-Clause
 ============================================================================
+Project URL: Homepage, https://github.com/sysid/sse-starlette
+Project URL: Repository, https://github.com/sysid/sse-starlette
+Project URL: Issues, https://github.com/sysid/sse-starlette/issues
+Project URL: Source, https://github.com/sysid/sse-starlette
+Package author: sysid <sysid@gmx.de>
 
 --- sse_starlette-3.4.11.dist-info/licenses/LICENSE ---
 Copyright © 2020, [sysid](https://sysid.github.io/).
@@ -6050,6 +6291,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 starlette==1.6.0 — BSD-3-Clause
 ============================================================================
+Project URL: Homepage, https://github.com/Kludex/starlette
+Project URL: Documentation, https://starlette.dev/
+Project URL: Changelog, https://starlette.dev/release-notes/
+Project URL: Funding, https://github.com/sponsors/Kludex
+Project URL: Source, https://github.com/Kludex/starlette
+Package author: Tom Christie <tom@tomchristie.com>
 
 --- starlette-1.6.0.dist-info/licenses/LICENSE.md ---
 Copyright © 2018, [Encode OSS Ltd](https://www.encode.io/).
@@ -6084,6 +6331,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 typing-inspection==0.4.4 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/pydantic/typing-inspection
+Project URL: Documentation, https://pydantic.github.io/typing-inspection/dev/
+Project URL: Source, https://github.com/pydantic/typing-inspection
+Project URL: Changelog, https://github.com/pydantic/typing-inspection/blob/main/HISTORY.md
+Package author: Victorien Plot <contact@vctrn.dev>
 
 --- typing_inspection-0.4.4.dist-info/licenses/LICENSE ---
 MIT License
@@ -6112,6 +6364,13 @@ SOFTWARE.
 ============================================================================
 typing_extensions==4.16.0 — PSF-2.0
 ============================================================================
+Project URL: Bug Tracker, https://github.com/python/typing_extensions/issues
+Project URL: Changes, https://github.com/python/typing_extensions/blob/main/CHANGELOG.md
+Project URL: Documentation, https://typing-extensions.readthedocs.io/
+Project URL: Home, https://github.com/python/typing_extensions
+Project URL: Q & A, https://github.com/python/typing/discussions
+Project URL: Repository, https://github.com/python/typing_extensions
+Package author: "Guido van Rossum, Jukka Lehtosalo, Łukasz Langa, Michael Lee" <levkivskyi@gmail.com>
 
 --- typing_extensions-4.16.0.dist-info/licenses/LICENSE ---
 A. HISTORY OF THE SOFTWARE
@@ -6398,6 +6657,11 @@ PERFORMANCE OF THIS SOFTWARE.
 ============================================================================
 tzdata==2026.3 — Apache-2.0
 ============================================================================
+Project URL: Bug Reports, https://github.com/python/tzdata/issues
+Project URL: Source, https://github.com/python/tzdata
+Project URL: Documentation, https://tzdata.python.org
+Homepage: https://github.com/python/tzdata
+Package author: datetime-sig@python.org
 
 --- tzdata-2026.3.dist-info/licenses/LICENSE ---
 Apache Software License 2.0
@@ -6625,6 +6889,10 @@ limitations under the License.
 ============================================================================
 tzlocal==5.4.4 — MIT
 ============================================================================
+Project URL: Source code, https://github.com/regebro/tzlocal
+Project URL: Changelog, https://github.com/regebro/tzlocal/blob/master/CHANGES.txt
+Project URL: Issue tracker, https://github.com/regebro/tzlocal/issues
+Package author: Lennart Regebro <regebro@gmail.com>
 
 --- tzlocal-5.4.4.dist-info/licenses/LICENSE.txt ---
 Copyright 2011-2017 Lennart Regebro
@@ -6651,6 +6919,11 @@ SOFTWARE.
 ============================================================================
 uvicorn==0.52.4 — BSD-3-Clause
 ============================================================================
+Project URL: Changelog, https://uvicorn.dev/release-notes
+Project URL: Funding, https://github.com/sponsors/encode
+Project URL: Homepage, https://uvicorn.dev/
+Project URL: Source, https://github.com/Kludex/uvicorn
+Package author: Tom Christie <tom@tomchristie.com>
 
 --- uvicorn-0.52.4.dist-info/licenses/LICENSE.md ---
 Copyright © 2017-present, [Encode OSS Ltd](https://www.encode.io/).
@@ -6685,6 +6958,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================================
 vine==5.1.0 — BSD
 ============================================================================
+Homepage: https://github.com/celery/vine
+Package author: auvipy@gmail.com
 
 --- vine-5.1.0.dist-info/LICENSE ---
 Copyright (c) 2015-2016 Ask Solem & contributors.  All rights reserved.
@@ -6744,6 +7019,13 @@ Footnotes
 ============================================================================
 watchfiles==1.2.0 — MIT
 ============================================================================
+Project URL: Changelog, https://github.com/samuelcolvin/watchfiles/releases
+Project URL: Documentation, https://watchfiles.helpmanual.io
+Project URL: Funding, https://github.com/sponsors/samuelcolvin
+Project URL: Homepage, https://github.com/samuelcolvin/watchfiles
+Project URL: Source, https://github.com/samuelcolvin/watchfiles
+Homepage: https://github.com/samuelcolvin/watchfiles
+Package author: Samuel Colvin <s@muelcolvin.com>
 
 --- watchfiles-1.2.0.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -6772,6 +7054,8 @@ SOFTWARE.
 ============================================================================
 wcwidth==0.8.3 — MIT
 ============================================================================
+Project URL: Homepage, https://github.com/jquast/wcwidth
+Package author: Jeff Quast <contact@jeffquast.com>
 
 --- wcwidth-0.8.3.dist-info/licenses/LICENSE ---
 The MIT License (MIT)
@@ -6806,6 +7090,12 @@ disclaims all warranties with regard to this software.
 ============================================================================
 websockets==17.1 — BSD-3-Clause
 ============================================================================
+Project URL: Homepage, https://github.com/python-websockets/websockets
+Project URL: Changelog, https://websockets.readthedocs.io/en/stable/project/changelog.html
+Project URL: Documentation, https://websockets.readthedocs.io/
+Project URL: Funding, https://tidelift.com/subscription/pkg/pypi-websockets?utm_source=pypi-websockets&utm_medium=referral&utm_campaign=readme
+Project URL: Tracker, https://github.com/python-websockets/websockets/issues
+Package author: Aymeric Augustin <aymeric.augustin@m4x.org>
 
 --- websockets-17.1.dist-info/licenses/LICENSE ---
 Copyright (c) Aymeric Augustin and contributors
@@ -7677,4 +7967,233 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+
+Psycopg-binary native dependency supplements
+The binary distribution bundles the PostgreSQL libpq client and OpenSSL.
+Their upstream copyright and license texts are reproduced below.
+Snapshots: PostgreSQL 18.4 and OpenSSL 3.6.3 (Windows x64 audit).
+Native versions and additional libraries vary between wheels/platforms.
+Psycopg source/build recipes: https://github.com/psycopg/psycopg/tree/3.3.5
+PostgreSQL source: https://www.postgresql.org/ftp/source/
+OpenSSL source: https://github.com/openssl/openssl
+
+
+--- postgresql-18.4-COPYRIGHT.txt ---
+PostgreSQL Database Management System
+(also known as Postgres, formerly known as Postgres95)
+
+Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group
+
+Portions Copyright (c) 1994, The Regents of the University of California
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose, without fee, and without a written agreement
+is hereby granted, provided that the above copyright notice and this
+paragraph and the following two paragraphs appear in all copies.
+
+IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING
+LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS
+DOCUMENTATION, EVEN IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
+ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATIONS TO
+PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+
+--- openssl-3.6.3-copyright-header.txt ---
+/*
+ * {- join("\n * ", @autowarntext) -}
+ *
+ * Copyright 1999-2025 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
+
+
+--- openssl-3.6.3-LICENSE.txt ---
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        https://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
 

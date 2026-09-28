@@ -42,6 +42,7 @@ apps/api/data/rag-test-index*/
 .local-data/
 .uv-cache/
 output/playwright/
+.playwright-cli/
 *.log
 *.pid
 .DS_Store

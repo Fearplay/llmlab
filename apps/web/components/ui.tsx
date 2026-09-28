@@ -28,6 +28,11 @@ export function InfoTip({ label, helpKey, context = "control" }: { label: string
     });
   }, []);
 
+  const show = () => {
+    updatePosition();
+    setOpen(true);
+  };
+
   useEffect(() => {
     if (!open) return;
     updatePosition();
@@ -45,7 +50,25 @@ export function InfoTip({ label, helpKey, context = "control" }: { label: string
     document.body,
   ) : null;
 
-  return <><span ref={root} className={`info-tip ${open ? "is-open" : ""}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}><span role="button" tabIndex={0} className="info-tip-trigger" aria-label={locale === "cs" ? `Více informací: ${copy.title}` : `More information: ${copy.title}`} aria-expanded={open} aria-describedby={open ? id : undefined} onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); setOpen(true); } }}><Info size={13} strokeWidth={2.2} /></span></span>{popover}</>;
+  return <>
+    <span ref={root} className={`info-tip ${open ? "is-open" : ""}`}
+      onPointerEnter={(event) => { if (event.pointerType === "mouse") show(); }}
+      onPointerLeave={(event) => { if (event.pointerType === "mouse" && !event.currentTarget.contains(document.activeElement)) setOpen(false); }}
+      onFocus={show}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
+      {/* The role button preserves the enclosing label's association with its input. */}
+      <span role="button" tabIndex={0} className="info-tip-trigger"
+        aria-label={locale === "cs" ? `Více informací: ${copy.title}` : `More information: ${copy.title}`}
+        aria-expanded={open} aria-describedby={open ? id : undefined}
+        onPointerDown={(event) => { if (event.pointerType === "touch") event.preventDefault(); event.stopPropagation(); }}
+        onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+        onClick={(event) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.focus(); show(); }}
+        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); show(); } }}>
+        <Info size={13} strokeWidth={2.2} />
+      </span>
+    </span>
+    {popover}
+  </>;
 }
 
 export function Combobox({ value, options, onChange, ariaLabel, helpKey, disabled = false }: { value: string; options: string[]; onChange: (value: string) => void; ariaLabel: string; helpKey: string; disabled?: boolean }) {

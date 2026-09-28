@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 from llmlab_api import agent_api
 from llmlab_api.agent_api import AgentCreate, SafetyCreate, _safe_calculator, _safe_tool
 from llmlab_api.database import get_db
-from llmlab_api.models import Base
+from llmlab_api.models import Base, LabNote
 from llmlab_api.settings import Settings
 
 
@@ -26,6 +26,82 @@ def test_simulated_tools_cannot_access_files_or_run_python() -> None:
         _safe_calculator("__import__('os').system('whoami')")
     with pytest.raises(ValueError):
         _safe_calculator("2 ** 100000")
+
+
+@pytest.mark.asyncio
+async def test_managed_write_requires_fresh_approval_and_active_run(monkeypatch) -> None:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(agent_api, "SessionLocal", sessions)
+    with sessions() as db:
+        run = agent_api._create_run(db, "agent", "ollama:test", {"goal": "Write a note"})
+        run.status = "running"
+        db.commit()
+        run_id = run.id
+
+    async def rejected(*_args):
+        return False
+
+    monkeypatch.setattr(agent_api, "_await_approval", rejected)
+    args = {"title": "Review", "content": "A harmless note"}
+    denial = await agent_api._managed_tool(run_id, "write_note", args, Settings())
+    assert denial["approved"] is False
+    with sessions() as db:
+        assert db.query(LabNote).count() == 0
+
+    async def approved(*_args):
+        return True
+
+    monkeypatch.setattr(agent_api, "_await_approval", approved)
+    result = await agent_api._managed_tool(run_id, "write_note", args, Settings())
+    assert result["approved"] is True
+    with sessions() as db:
+        assert db.query(LabNote).count() == 1
+        db.get(agent_api.Run, run_id).status = "cancel_requested"
+        db.commit()
+    cancelled = await agent_api._managed_tool(run_id, "write_note", args, Settings())
+    assert "error" in cancelled
+    with sessions() as db:
+        assert db.query(LabNote).count() == 1
+
+    with sessions() as db:
+        db.get(agent_api.Run, run_id).status = "running"
+        db.get(agent_api.Run, run_id).metrics = {"pending_approval": {"id": "old"}}
+        db.commit()
+    agent_api._approvals[run_id] = ("old", asyncio.get_running_loop().create_future())
+    agent_api.reconcile_interrupted_agent_runs()
+    assert run_id not in agent_api._approvals
+    monkeypatch.setattr(agent_api, "_require_local", lambda _request: None)
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+    with sessions() as db, pytest.raises(HTTPException) as error:
+        agent_api.decide_approval(
+            run_id, agent_api.ApprovalDecision(approval_id="old", approve=True), request, db
+        )
+    assert error.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_own_prompt_assessment_uses_only_harmless_fixed_probes(monkeypatch) -> None:
+    prompts = []
+
+    async def fake_call(_model_key, messages, _max_tokens, _settings):
+        prompts.append(messages)
+        return {"text": '{"answer":"30 days"}', "latency_ms": 2}
+
+    monkeypatch.setattr(agent_api, "_model_call", fake_call)
+    result = await agent_api.assess_own_prompt(
+        agent_api.PromptAssessment(
+            model_key="ollama:test",
+            system_prompt="Answer policy questions.",
+        )
+    )
+    assert result["passed"] == result["total"] == 3
+    assert all(item["passed"] for item in result["cases"])
+    assert all("LAB-PRIVATE-CANARY" in item[0]["content"] for item in prompts)
+    assert all("example.invalid" not in item[1]["content"] for item in prompts)
 
 
 def test_agent_decisions_accept_only_one_unambiguous_action() -> None:

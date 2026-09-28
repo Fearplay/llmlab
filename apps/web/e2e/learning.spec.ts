@@ -39,18 +39,77 @@ test("a mission gives retry feedback and saves only completed slugs", async ({ p
   await expect(page.getByText(`Dokončeno: 1 / ${missions.length}`)).toBeVisible();
 });
 
-test("field help opens with mouse, keyboard, and touch", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === "tablet", "Pointer and keyboard checks use desktop and mobile.");
+test("field help supports focus, Enter, Space, Escape, and Tab", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Keyboard navigation uses desktop and tablet.");
   await page.goto("/ai-lab/agents");
   const help = page.getByRole("button", { name: "Více informací: Úloha agenta" });
-  if (testInfo.project.name === "mobile") await help.tap();
-  else { await help.focus(); await help.press("Enter"); }
-  await expect(page.getByRole("tooltip")).toBeVisible();
-  await expect(page.getByRole("tooltip")).toContainText("Příklad");
-  if (testInfo.project.name === "desktop") {
+  const tooltip = page.getByRole("tooltip");
+  await help.focus();
+  await expect(tooltip).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeVisible();
+  for (const key of ["Enter", "Space"]) {
     await help.press("Escape");
-    await expect(page.getByRole("tooltip")).toHaveCount(0);
-    await help.click();
-    await expect(page.getByRole("tooltip")).toBeVisible();
+    await expect(tooltip).toHaveCount(0);
+    await expect(help).toHaveAttribute("aria-expanded", "false");
+    await expect(help).not.toHaveAttribute("aria-describedby");
+    await help.press(key);
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText("Příklad");
+    await expect(help).toHaveAttribute("aria-describedby", (await tooltip.getAttribute("id"))!);
   }
+  await help.press("Tab");
+  await expect(page.getByRole("textbox", { name: /Co má agent zjistit/ })).toBeFocused();
+  await expect(tooltip).toHaveCount(0);
+});
+
+test("field help opens on mouse hover and click, and closes outside", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Mouse interactions use desktop and tablet.");
+  await page.goto("/ai-lab/agents");
+  const help = page.getByRole("button", { name: "Více informací: Úloha agenta" });
+  const tooltip = page.getByRole("tooltip");
+  await help.hover();
+  await expect(tooltip).toBeVisible();
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toHaveCount(0);
+  await help.click();
+  await expect(tooltip).toBeVisible();
+  await expect(help).toBeFocused();
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeVisible();
+  await page.getByRole("textbox", { name: /Co má agent zjistit/ }).click();
+  await expect(tooltip).toHaveCount(0);
+});
+
+test("field help stays open after touch and closes on an outside tap", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Real touch interactions use the touch-enabled mobile project.");
+  await page.goto("/ai-lab/agents");
+  const help = page.getByRole("button", { name: "Více informací: Úloha agenta" });
+  const field = page.getByRole("textbox", { name: /Co má agent zjistit/ });
+  const tooltip = page.getByRole("tooltip");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await help.tap();
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText("Příklad");
+    await expect(help).toBeFocused();
+    await expect(field).not.toBeFocused();
+    await expect(help).toHaveAttribute("aria-expanded", "true");
+    await expect(help).toHaveAttribute("aria-describedby", (await tooltip.getAttribute("id"))!);
+    const bounds = await tooltip.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    await help.tap();
+    await expect(tooltip).toBeVisible();
+    await field.tap();
+    await expect(tooltip).toHaveCount(0);
+    await expect(help).toHaveAttribute("aria-expanded", "false");
+    await expect(field).toBeFocused();
+  }
+  const reflection = page.getByRole("checkbox", { name: /Při neúspěchu požádat model/ });
+  const checked = await reflection.isChecked();
+  await page.getByRole("button", { name: /^Více informací: Při neúspěchu/ }).tap();
+  await expect(tooltip).toBeVisible();
+  expect(await reflection.isChecked()).toBe(checked);
 });

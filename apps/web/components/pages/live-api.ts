@@ -75,6 +75,11 @@ export function formatCost(value: number | null | undefined, locale: string): st
 
 export function errorMessage(error: unknown, locale: string): string {
   const message = error instanceof Error ? error.message : String(error);
+  const cs = locale === "cs";
+  if (/\b(401|403)\b|api key|missing key|authentication|unauthorized/i.test(message)) return cs ? "Chybí nebo neplatí API klíč. Zkontrolujte poskytovatele v Nastavení." : "The API key is missing or invalid. Check the provider in Settings.";
+  if (/\b429\b|rate.?limit|quota/i.test(message)) return cs ? "Poskytovatel odmítl požadavek kvůli limitu. Počkejte nebo zkontrolujte kvótu." : "The provider rejected the request due to a limit. Wait or check your quota.";
+  if (/timeout|timed out|časový limit/i.test(message)) return cs ? "Vypršel čas požadavku. Zkuste menší úlohu nebo ověřte spojení s modelem." : "The request timed out. Try a smaller task or check the model connection.";
+  if (/ollama|11434/i.test(message) && /connect|unavailable|refused|failed|nedostup/i.test(message)) return cs ? "Ollama neodpovídá. Spusťte ji a v Nastavení zkontrolujte připravenost." : "Ollama is not responding. Start it and check readiness in Settings.";
   if (message.includes("Failed to fetch") || message.includes("HTTP 502") || message.includes("HTTP 503")) return locale === "cs" ? "LLMLab API není dostupné. Spusť aplikaci přes start.py a zkus to znovu." : "The LLMLab API is unavailable. Start the app with start.py and try again.";
   if (message === "Not Found" || message.includes("HTTP 404: Not Found")) return locale === "cs" ? "Tato funkce na běžícím API chybí. Restartuj LLMLab pomocí start.py, aby web i API používaly stejnou verzi." : "This endpoint is missing from the running API. Restart LLMLab with start.py so the web app and API use the same version.";
   return message;
