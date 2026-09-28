@@ -1,0 +1,17 @@
+{
+  "imurmurhash@0.1.4": {
+    "file": "licenses/npm/imurmurhash-0.1.4-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/jensyt/imurmurhash-js/0.1.4/LICENSE",
+    "sha256": "fa0943ddcaa857d901a9eb92254d89876297ecdfbc884d294a927df08ebcbbe8"
+  },
+  "unrs-resolver@1.12.2": {
+    "file": "licenses/npm/unrs-resolver-1.12.2-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/unrs/unrs-resolver/ccb26d205e2938b16069c64a28996b48ee97ff94/LICENSE",
+    "sha256": "a9e35996693bd619302922c731fa2f620ad12d5f50b19a37c8a3e0e078c9bd2f"
+  },
+  "saxes@6.0.0": {
+    "file": "licenses/npm/saxes-6.0.0-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+    "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e"
+  }
+}
